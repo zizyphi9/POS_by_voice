@@ -1,0 +1,17 @@
+{
+  "name": "스마트 음성 POS 계산기",
+  "short_name": "음성계산기",
+  "description": "음성으로 빠르고 편리하게 계산하는 스마트 POS 계산기",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#3b82f6",
+  "icons": [
+    {
+      "src": "icon.png",
+      "sizes": "1024x1024",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

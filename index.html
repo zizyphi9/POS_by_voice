@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>스마트 음성 POS 계산기</title>
+
+    <!-- PWA Settings -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#3b82f6">
+    <link rel="apple-touch-icon" href="icon.png">
+
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Pretendard:wght@400;500;600;700;800&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+
+<body>
+    <div class="app-container">
+        <header class="app-header">
+            <h1><i class="fa-solid fa-calculator"></i> 스마트 음성 계산기</h1>
+            <button id="history-btn" class="header-btn"><i class="fa-solid fa-clock-rotate-left"></i> 과거 기록 보기</button>
+        </header>
+
+        <div class="main-content">
+            <!-- Left Panel: Receipt List -->
+            <div class="receipt-panel" id="receipt-panel">
+                <div class="tabs-container" style="display: flex; border-bottom: 1px solid var(--border);">
+                    <button class="tab-btn active" data-tab="0"
+                        style="flex:1; padding: 15px; border:none; background: #ffffff; cursor:pointer; font-weight:bold; font-size: 16px; border-right: 1px solid var(--border); color: var(--primary);">결제
+                        1</button>
+                    <button class="tab-btn" data-tab="1"
+                        style="flex:1; padding: 15px; border:none; background: #fdf2f8; cursor:pointer; font-weight:bold; font-size: 16px; border-right: 1px solid var(--border); color: var(--text-mut);">결제
+                        2</button>
+                    <button class="tab-btn" data-tab="2"
+                        style="flex:1; padding: 15px; border:none; background: #f0fdf4; cursor:pointer; font-weight:bold; font-size: 16px; color: var(--text-mut);">결제
+                        3</button>
+                </div>
+                <div class="receipt-header">
+                    <div style="display: flex; gap: 10px; margin-top: 5px; align-items: center;">
+                        <input type="text" id="session-memo" placeholder="전체 메모"
+                            style="flex:1;">
+                        <div class="mic-wrapper" style="margin: 0; width: 44px; height: 44px;">
+                            <button id="mic-btn" class="mic-btn" style="font-size: 20px;">
+                                <i class="fa-solid fa-microphone"></i>
+                            </button>
+                            <div class="mic-ripple" id="mic-ripple"></div>
+                        </div>
+                    </div>
+                    <div id="voice-status" style="color: var(--primary); font-weight: 600; font-size: 14px; margin-top: 5px;">마이크 버튼을 눌러 시작하세요</div>
+                    <div id="voice-transcript" style="color: var(--text-mut); font-style: italic; font-size: 14px; min-height: 20px;"></div>
+                    <div id="current-time-display"
+                        style="color: var(--text-mut); font-size: 14px; text-align: right; margin-top: 2px;"></div>
+                </div>
+
+                <div class="receipt-list-container">
+                    <table class="receipt-table">
+                        <thead>
+                            <tr>
+                                <th width="24" style="text-align: center; font-size: 11px; padding: 8px 4px;">NO</th>
+                                <th>단가</th>
+                                <th width="110" style="text-align: center;">수량</th>
+                                <th>합계</th>
+                                <th>항목 메모</th>
+                                <th width="32"></th>
+                            </tr>
+                        </thead>
+                        <tbody id="receipt-body">
+                            <!-- Items injected by JS -->
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="receipt-footer">
+                    <div class="total-row">
+                        <div style="display: flex; flex-direction: column; align-items: flex-start; gap: 8px;">
+                            <span>총 합계</span>
+                            <div
+                                style="display: flex; align-items: center; font-size: 15px; color: #3b82f6; font-weight: 500;">
+                                추가 할인: - <input type="text" id="extra-discount" value="0" inputmode="numeric" pattern="[0-9]*"
+                                    style="width: 80px; text-align: right; margin: 0 5px; border: 1px solid #cbd5e1; border-radius: 4px; padding: 4px;"
+                                    class="num-input"> 원
+                            </div>
+                            <span id="total-discount" style="color: #3b82f6; font-size: 14px; font-weight: 600;"></span>
+                        </div>
+                        <span id="total-sum" class="total-sum">0원</span>
+                    </div>
+                    <button id="save-btn" class="save-btn"><i class="fa-solid fa-check"></i> 계산 완료 및 저장</button>
+                </div>
+            </div>
+
+
+        </div>
+    </div>
+
+    <!-- History Modal -->
+    <div id="history-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div class="hist-filter">
+                    <input type="datetime-local" id="hist-datetime-start"> ~ 
+                    <input type="datetime-local" id="hist-datetime-end">
+                    <button id="hist-search-btn">검색</button>
+                </div>
+                <button class="close-modal" id="close-modal-btn"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="history-list" id="history-list"></div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+
+</html>
