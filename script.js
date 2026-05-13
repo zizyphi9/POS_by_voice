@@ -218,6 +218,14 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
+        // 입력 완료 / 마이크 끄기
+        if (text.includes('입력 완료') || text.includes('입력완료') || text.includes('그만') || text.includes('정지') || text.includes('마이크 꺼') || text.includes('마이크 꺼줘') || text.includes('계산 완료')) {
+            if (isListening && recognition) {
+                try { recognition.stop(); } catch(e) {}
+            }
+            return;
+        }
+
         // 전체 초기화
         if (text.includes('초기화') || text.includes('전부 지워')) {
             items = [];
@@ -657,6 +665,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
     // --- 기록 (History) 기능 ---
+    document.getElementById('reset-btn').addEventListener('click', () => {
+        if(confirm('현재 입력된 모든 내용을 초기화하시겠습니까?')) {
+            items = [];
+            sessionsData[currentTab].items = items;
+            sessionsData[currentTab].memo = '';
+            sessionsData[currentTab].extraDiscount = 0;
+            document.getElementById('session-memo').value = '';
+            renderItems();
+        }
+    });
+
     document.getElementById('save-btn').addEventListener('click', () => {
         if (items.length === 0) return;
         
@@ -690,6 +709,10 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('session-memo').value = '';
         renderItems();
         alert('계산이 완료되어 기록에 저장되었습니다.');
+        
+        if (isListening && recognition) {
+            try { recognition.stop(); } catch(e) {}
+        }
     });
 
     function getTime24(s) {
@@ -781,15 +804,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 html += `
                 <div class="history-card">
-                    <div class="hist-header" onclick="this.nextElementSibling.style.display = this.nextElementSibling.style.display === 'none' ? 'block' : 'none';" style="cursor: pointer;">
-                        <span><i class="fa-regular fa-clock"></i> ${session.time || getTime24(session)}</span>
-                        <div>
+                    <div class="hist-header" onclick="this.nextElementSibling.style.display = this.nextElementSibling.style.display === 'none' ? 'block' : 'none';" style="cursor: pointer; display: flex; justify-content: space-between; align-items: flex-start;">
+                        <div style="display: flex; flex-direction: column; flex: 1; padding-right: 15px;">
+                            <span><i class="fa-regular fa-clock"></i> ${session.time || getTime24(session)}</span>
+                            ${session.memo ? `<span style="font-size: 13px; color: var(--text-mut); margin-top: 6px; font-weight: 500; line-height: 1.4;"><i class="fa-solid fa-note-sticky"></i> ${session.memo}</span>` : ''}
+                        </div>
+                        <div style="white-space: nowrap; text-align: right;">
                             ${totalDiscountHtml}
                             <span class="hist-total">${session.total.toLocaleString()}원 <i class="fa-solid fa-chevron-down" style="font-size:0.8em; margin-left:5px;"></i></span>
                         </div>
                     </div>
                     <div class="hist-details" style="display: none;">
-                        ${session.memo ? `<div class="hist-memo"><i class="fa-solid fa-note-sticky"></i> ${session.memo}</div>` : ''}
                         <div class="hist-items">
                             ${session.items.map((item, idx) => {
                                 let qtyHtml = item.quantity > 1 ? ` × <span style="color: red; font-weight: bold;">${item.quantity}</span>` : '';
