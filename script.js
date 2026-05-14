@@ -1,11 +1,32 @@
 document.addEventListener('DOMContentLoaded', () => {
+    // --- Data Persistence Setup ---
+    let savedSessions = localStorage.getItem('currentSessionsData');
     let sessionsData = [
-        { items: [], memo: '', extraDiscount: 0 },
-        { items: [], memo: '', extraDiscount: 0 },
-        { items: [], memo: '', extraDiscount: 0 }
+        { historyId: null, items: [], memo: '', extraDiscount: 0 },
+        { historyId: null, items: [], memo: '', extraDiscount: 0 },
+        { historyId: null, items: [], memo: '', extraDiscount: 0 }
     ];
+
+    if (savedSessions) {
+        try {
+            let parsed = JSON.parse(savedSessions);
+            if (parsed && parsed.length === 3) sessionsData = parsed;
+        } catch (e) { }
+    }
+
     let currentTab = 0;
+    let savedTab = localStorage.getItem('currentTab');
+    if (savedTab !== null) {
+        currentTab = parseInt(savedTab);
+        if (isNaN(currentTab) || currentTab < 0 || currentTab > 2) currentTab = 0;
+    }
+
     let items = sessionsData[currentTab].items;
+
+    function saveSessionState() {
+        localStorage.setItem('currentSessionsData', JSON.stringify(sessionsData));
+        localStorage.setItem('currentTab', currentTab);
+    }
 
     // --- UI Update & Time ---
     function updateCurrentTime() {
@@ -78,7 +99,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 voiceStatus.textContent = '마이크 버튼을 눌러 시작하세요';
                 return;
             }
-            // Mobile auto-restart (Continuous mode work-around)
+            // Mobile auto-restart
             setTimeout(() => {
                 if (!isListening && !userStopped) {
                     try { recognition.start(); } catch (e) { }
@@ -126,6 +147,15 @@ document.addEventListener('DOMContentLoaded', () => {
     } else {
         voiceStatus.textContent = "현재 브라우저는 음성 인식을 지원하지 않습니다.";
     }
+
+    // 모바일 화면 꺼짐/켜짐 복구
+    document.addEventListener("visibilitychange", () => {
+        if (document.visibilityState === 'visible') {
+            if (!userStopped && !isListening && recognition) {
+                try { recognition.start(); } catch (e) { }
+            }
+        }
+    });
 
     // --- Command Processing ---
     function processVoiceCommand(text) {
@@ -176,7 +206,9 @@ document.addEventListener('DOMContentLoaded', () => {
         sessionsData[currentTab].items = [];
         sessionsData[currentTab].memo = '';
         sessionsData[currentTab].extraDiscount = 0;
+        sessionsData[currentTab].historyId = null;
         items = sessionsData[currentTab].items;
+        
         document.getElementById('session-memo').value = '';
         renderItems();
         voiceTranscript.textContent = '';
@@ -268,7 +300,7 @@ document.addEventListener('DOMContentLoaded', () => {
         let parts = str.split(/\s+/);
         let amountParts = [];
         let memoParts = [];
-        
+
         // 금액에 쓰이는 유효한 문자 (숫자, 쉼표, 한국어 숫자/단위)
         const amountRegex = /^[\d,일이삼사오육칠팔구영공십백천만억조]+$/;
 
@@ -429,6 +461,7 @@ document.addEventListener('DOMContentLoaded', () => {
             let id = e.target.dataset.id;
             let item = items.find(i => i.id == id);
             if (item) item.memo = e.target.value;
+            saveSessionState();
         }));
         document.querySelectorAll('.row-qty').forEach(inp => inp.addEventListener('change', e => {
             let id = e.target.dataset.id;
@@ -436,7 +469,31 @@ document.addEventListener('DOMContentLoaded', () => {
             let item = items.find(i => i.id == id);
             if (item) { item.quantity = val; renderItems(); }
         }));
+
+        saveSessionState();
     }
+
+    // 초기 렌더링 및 UI 설정 (저장된 탭 복구)
+    function initializeTabs() {
+        document.querySelectorAll('.tab-btn').forEach(b => {
+            b.classList.remove('active');
+            b.style.color = 'var(--text-mut)';
+            if (parseInt(b.dataset.tab) === currentTab) {
+                b.classList.add('active');
+                b.style.color = 'var(--primary)';
+            }
+        });
+        const panel = document.getElementById('receipt-panel');
+        if (currentTab === 0) panel.style.backgroundColor = '#ffffff';
+        else if (currentTab === 1) panel.style.backgroundColor = '#fdf2f8';
+        else if (currentTab === 2) panel.style.backgroundColor = '#f0fdf4';
+        
+        document.getElementById('session-memo').value = sessionsData[currentTab].memo;
+        document.getElementById('extra-discount').value = (sessionsData[currentTab].extraDiscount || 0).toLocaleString();
+        
+        renderItems();
+    }
+    initializeTabs();
 
     // --- Buttons & Interactions ---
     document.getElementById('reset-btn').addEventListener('click', resetToFirstScreen);
@@ -446,21 +503,29 @@ document.addEventListener('DOMContentLoaded', () => {
     function saveHistory() {
         if (items.length === 0) return;
         const now = new Date();
-        const session = {
-            id: now.getTime(),
-            date: now.toLocaleDateString(),
-            time: now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-            items: JSON.parse(JSON.stringify(items)),
-            total: items.reduce((acc, it) => acc + (it.amount * it.quantity), 0) - (sessionsData[currentTab].extraDiscount || 0),
-            memo: document.getElementById('session-memo').value,
-            extraDiscount: sessionsData[currentTab].extraDiscount || 0
-        };
-
         let history = JSON.parse(localStorage.getItem('calcHistory') || '[]');
-        history.push(session);
+        
+        let total = items.reduce((acc, it) => acc + (it.amount * it.quantity), 0) - (sessionsData[currentTab].extraDiscount || 0);
+        let histId = sessionsData[currentTab].historyId;
+
+        if (histId) {
+            let existing = history.find(s => s.id === histId);
+            if (existing) {
+                existing.updatedAt = now.getTime();
+                existing.items = JSON.parse(JSON.stringify(items));
+                existing.total = total;
+                existing.memo = document.getElementById('session-memo').value;
+                existing.extraDiscount = sessionsData[currentTab].extraDiscount || 0;
+            } else {
+                createNewHistory(history, now, total);
+            }
+        } else {
+            createNewHistory(history, now, total);
+        }
 
         // Keep only latest 30 records
         if (history.length > 30) {
+            history.sort((a, b) => a.id - b.id);
             history = history.slice(history.length - 30);
         }
 
@@ -471,31 +536,32 @@ document.addEventListener('DOMContentLoaded', () => {
         sessionsData[currentTab].items = items;
         sessionsData[currentTab].memo = '';
         sessionsData[currentTab].extraDiscount = 0;
+        sessionsData[currentTab].historyId = null;
         document.getElementById('session-memo').value = '';
+        document.getElementById('extra-discount').value = '0';
         renderItems();
         alert('저장 완료되었습니다.');
+    }
+
+    function createNewHistory(history, now, total) {
+        const session = {
+            id: now.getTime(),
+            createdAt: now.getTime(),
+            updatedAt: now.getTime(),
+            items: JSON.parse(JSON.stringify(items)),
+            total: total,
+            memo: document.getElementById('session-memo').value,
+            extraDiscount: sessionsData[currentTab].extraDiscount || 0
+        };
+        history.push(session);
     }
 
     // Tabs
     document.querySelectorAll('.tab-btn').forEach(btn => {
         btn.addEventListener('click', (e) => {
-            document.querySelectorAll('.tab-btn').forEach(b => {
-                b.classList.remove('active');
-                b.style.color = 'var(--text-mut)';
-            });
-            e.target.classList.add('active');
-            e.target.style.color = 'var(--primary)';
-
             currentTab = parseInt(e.target.dataset.tab);
             items = sessionsData[currentTab].items;
-            document.getElementById('session-memo').value = sessionsData[currentTab].memo;
-
-            const panel = document.getElementById('receipt-panel');
-            if (currentTab === 0) panel.style.backgroundColor = '#ffffff';
-            else if (currentTab === 1) panel.style.backgroundColor = '#fdf2f8';
-            else if (currentTab === 2) panel.style.backgroundColor = '#f0fdf4';
-
-            renderItems();
+            initializeTabs();
         });
     });
 
@@ -508,6 +574,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     document.getElementById('session-memo').addEventListener('input', (e) => {
         sessionsData[currentTab].memo = e.target.value;
+        saveSessionState();
     });
 
     // --- History Modal ---
@@ -549,6 +616,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (history.length === 0) {
             list.innerHTML = '<p class="empty-msg">기록이 없습니다.</p>';
+            document.getElementById('hist-select-all').checked = false;
             return;
         }
 
@@ -556,16 +624,27 @@ document.addEventListener('DOMContentLoaded', () => {
 
         let html = '';
         history.forEach(session => {
+            const created = new Date(session.createdAt || session.id).toLocaleString();
+            const updatedStr = session.updatedAt && session.updatedAt !== (session.createdAt || session.id) 
+                ? `<span style="font-size:11px; color:#f59e0b; margin-left:5px;">(수정: ${new Date(session.updatedAt).toLocaleString()})</span>` 
+                : '';
+                
             html += `
-            <div class="history-card" style="border:1px solid #e2e8f0; margin-bottom:10px; padding:10px; border-radius:8px;">
-                <div style="display:flex; justify-content:space-between; margin-bottom:8px;">
-                    <strong>${new Date(session.id).toLocaleString()}</strong>
-                    <strong style="color:#3b82f6;">${session.total.toLocaleString()}원</strong>
+            <div class="history-card" style="border:1px solid #e2e8f0; margin-bottom:10px; padding:10px; border-radius:8px; background: white;">
+                <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #f1f5f9; padding-bottom:8px; margin-bottom:8px;">
+                    <div style="display:flex; align-items:center; gap:10px;">
+                        <input type="checkbox" class="hist-checkbox" data-id="${session.id}">
+                        <strong style="font-size:13px;">${created}${updatedStr}</strong>
+                    </div>
+                    <div style="display:flex; gap:8px; align-items:center;">
+                        <strong style="color:#3b82f6;">${session.total.toLocaleString()}원</strong>
+                        <button class="load-hist-btn" data-id="${session.id}" style="background:#3b82f6; color:white; border:none; border-radius:4px; padding:4px 8px; font-size:12px; cursor:pointer;">불러오기</button>
+                    </div>
                 </div>
                 ${session.memo ? `<div style="font-size:13px; color:#64748b; margin-bottom:8px;"><i class="fa-solid fa-note-sticky"></i> ${session.memo}</div>` : ''}
                 <div style="font-size:13px;">
                     ${session.items.map(it => `
-                        <div style="display:flex; justify-content:space-between;">
+                        <div style="display:flex; justify-content:space-between; margin-bottom:2px;">
                             <span>${it.memo} ${it.amount.toLocaleString()}원 × ${it.quantity}</span>
                             <span>${(it.amount * it.quantity).toLocaleString()}원</span>
                         </div>
@@ -575,5 +654,59 @@ document.addEventListener('DOMContentLoaded', () => {
             `;
         });
         list.innerHTML = html;
+
+        // Event listeners for history actions
+        document.querySelectorAll('.load-hist-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                let id = parseInt(e.target.dataset.id);
+                loadHistoryToTab(id);
+            });
+        });
+        
+        // Handle individual checkbox change to update 'select all'
+        document.querySelectorAll('.hist-checkbox').forEach(cb => {
+            cb.addEventListener('change', () => {
+                let allChecked = Array.from(document.querySelectorAll('.hist-checkbox')).every(c => c.checked);
+                document.getElementById('hist-select-all').checked = allChecked;
+            });
+        });
     }
+
+    function loadHistoryToTab(id) {
+        let history = JSON.parse(localStorage.getItem('calcHistory') || '[]');
+        let session = history.find(s => s.id === id);
+        if (session) {
+            sessionsData[currentTab].items = JSON.parse(JSON.stringify(session.items));
+            sessionsData[currentTab].memo = session.memo || '';
+            sessionsData[currentTab].extraDiscount = session.extraDiscount || 0;
+            sessionsData[currentTab].historyId = id;
+            items = sessionsData[currentTab].items;
+            
+            document.getElementById('history-modal').classList.remove('active');
+            initializeTabs();
+            alert('기록이 현재 화면으로 불러와졌습니다. 수정 후 저장하면 기존 기록이 업데이트됩니다.');
+        }
+    }
+
+    document.getElementById('hist-select-all').addEventListener('change', (e) => {
+        let isChecked = e.target.checked;
+        document.querySelectorAll('.hist-checkbox').forEach(cb => {
+            cb.checked = isChecked;
+        });
+    });
+
+    document.getElementById('hist-delete-selected-btn').addEventListener('click', () => {
+        let selectedIds = Array.from(document.querySelectorAll('.hist-checkbox:checked')).map(cb => parseInt(cb.dataset.id));
+        if (selectedIds.length === 0) {
+            alert('삭제할 항목을 선택해주세요.');
+            return;
+        }
+        if (confirm(`선택한 ${selectedIds.length}개의 기록을 삭제하시겠습니까?`)) {
+            let history = JSON.parse(localStorage.getItem('calcHistory') || '[]');
+            history = history.filter(s => !selectedIds.includes(s.id));
+            localStorage.setItem('calcHistory', JSON.stringify(history));
+            renderHistory();
+        }
+    });
+
 });
