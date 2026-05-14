@@ -484,12 +484,20 @@ document.addEventListener('DOMContentLoaded', () => {
             sessionsData[currentTab].items = items;
             renderItems();
         }));
-        document.querySelectorAll('.row-amount').forEach(inp => inp.addEventListener('change', e => {
-            let id = e.target.dataset.id;
-            let val = parseInt(e.target.value.replace(/,/g, '')) || 0;
-            let item = items.find(i => i.id == id);
-            if (item) { item.amount = val; renderItems(); }
-        }));
+        document.querySelectorAll('.row-amount').forEach(inp => {
+            // 정수만 허용 (입력 즉시 비숫자 제거)
+            inp.addEventListener('input', e => {
+                let raw = e.target.value.replace(/[^0-9]/g, '');
+                let val = parseInt(raw) || 0;
+                e.target.value = val > 0 ? val.toLocaleString() : '';
+            });
+            inp.addEventListener('change', e => {
+                let id = e.target.dataset.id;
+                let val = parseInt(e.target.value.replace(/,/g, '')) || 0;
+                let item = items.find(i => i.id == id);
+                if (item) { item.amount = val; renderItems(); }
+            });
+        });
         const tooltip = document.getElementById('memo-tooltip');
         document.querySelectorAll('.row-memo').forEach(inp => {
             inp.addEventListener('change', e => {
@@ -644,7 +652,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const extraPopupInput = document.getElementById('extra-popup-discount-input');
     if (extraPopupInput) {
         extraPopupInput.addEventListener('input', (e) => {
-            let val = parseInt(e.target.value.replace(/,/g, '')) || 0;
+            let raw = e.target.value.replace(/[^0-9]/g, ''); // 정수만
+            let val = parseInt(raw) || 0;
             e.target.value = val > 0 ? val.toLocaleString() : '';
         });
     }
@@ -869,7 +878,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const itemPopupInput = document.getElementById('item-popup-discount-input');
     if (itemPopupInput) {
         itemPopupInput.addEventListener('input', (e) => {
-            let val = parseInt(e.target.value.replace(/,/g, '')) || 0;
+            let raw = e.target.value.replace(/[^0-9]/g, ''); // 정수만
+            let val = parseInt(raw) || 0;
             e.target.value = val > 0 ? val.toLocaleString() : '';
         });
     }
