@@ -119,7 +119,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     // 처리 완료 후 깨끗한 상태로 다시 시작하기 위해 stop 호출
                     try { recognition.stop(); } catch (err) { }
                 }
-            }, 1200); // 1.2 seconds silence triggers processing
+            }, 800); // 0.8 seconds silence triggers processing
         };
 
         try { recognition.start(); } catch (e) { }
@@ -252,21 +252,41 @@ document.addEventListener('DOMContentLoaded', () => {
         let amountStr = '';
         let qtyStr = '1';
 
-        // Match: (memo) (amount)원 (quantity)개
-        let m = str.match(/^(.*?)\s*([0-9가-힣,]+)\s*원(?:\s*(?:([0-9가-힣]+)\s*개|곱하기\s*([0-9가-힣]+)))?$/);
-        if (m) {
-            memo = m[1].trim();
-            amountStr = m[2];
-            qtyStr = m[3] || m[4] || '1';
-        } else {
-            // "박카스 3500원" 
-            m = str.match(/^(.*?)\s*([0-9가-힣,]+)\s*원$/);
-            if (m) {
-                memo = m[1].trim();
-                amountStr = m[2];
+        // 1. 수량 추출 ("N개" 또는 "곱하기 N")
+        let qtyMatch = str.match(/\s*(?:([0-9가-힣]+)\s*개|곱하기\s*([0-9가-힣]+))$/);
+        if (qtyMatch) {
+            qtyStr = qtyMatch[1] || qtyMatch[2];
+            str = str.slice(0, -qtyMatch[0].length).trim();
+        }
+
+        // 2. "원" 제거
+        if (str.endsWith('원')) {
+            str = str.slice(0, -1).trim();
+        }
+
+        // 3. 띄어쓰기 기준으로 토큰 분리 후, 뒤에서부터 '금액'에 해당하는 글자인지 확인
+        let parts = str.split(/\s+/);
+        let amountParts = [];
+        let memoParts = [];
+        
+        // 금액에 쓰이는 유효한 문자 (숫자, 쉼표, 한국어 숫자/단위)
+        const amountRegex = /^[\d,일이삼사오육칠팔구영공십백천만억조]+$/;
+
+        for (let i = parts.length - 1; i >= 0; i--) {
+            if (amountRegex.test(parts[i])) {
+                amountParts.unshift(parts[i]);
             } else {
-                return null;
+                // 금액이 아닌 단어를 만나면 그 앞은 전부 메모로 취급
+                memoParts = parts.slice(0, i + 1);
+                break;
             }
+        }
+
+        if (amountParts.length > 0) {
+            amountStr = amountParts.join('');
+            memo = memoParts.join(' ');
+        } else {
+            return null; // 금액이 없으면 무효
         }
 
         let amount = parseKoreanNumberString(amountStr);
