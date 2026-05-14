@@ -190,6 +190,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function resetToFirstScreen() {
+        if (!confirm("정말 초기화할까요?")) return;
         // 첫 화면(결제 1 탭)으로 돌아가고 초기화
         currentTab = 0;
         document.querySelectorAll('.tab-btn').forEach(b => {
@@ -212,7 +213,6 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('session-memo').value = '';
         renderItems();
         voiceTranscript.textContent = '';
-        alert('모든 내용이 초기화되고 첫 화면으로 돌아왔습니다.');
     }
 
     function applyCorrections(text) {
@@ -243,6 +243,20 @@ document.addEventListener('DOMContentLoaded', () => {
                 // 가장 최근 항목 수량 변경
                 items[items.length - 1].quantity = newQty;
                 corrected = true;
+            }
+        }
+
+        // "박카스를 쌍화탕으로 수정해줘" 등 항목명(메모) 수정
+        const textRegex = /(.*?)[을를]\s+(.*?)(?:으)?로\s*(?:수정|변경)/g;
+        while ((match = textRegex.exec(text)) !== null) {
+            let oldMemo = match[1].trim();
+            let newMemo = match[2].trim();
+            for (let i = items.length - 1; i >= 0; i--) {
+                if (items[i].memo === oldMemo || items[i].memo.includes(oldMemo)) {
+                    items[i].memo = items[i].memo.replace(oldMemo, newMemo);
+                    corrected = true;
+                    break;
+                }
             }
         }
 
@@ -412,6 +426,8 @@ document.addEventListener('DOMContentLoaded', () => {
             let rowTotal = item.amount * item.quantity;
             itemsTotal += rowTotal;
 
+            let qtyColorStyle = item.quantity > 1 ? 'color: var(--danger);' : '';
+
             const tr = document.createElement('tr');
             tr.innerHTML = `
                 <td style="text-align: center; font-weight: bold; color: var(--text-mut); font-size: 11px;">${index + 1}</td>
@@ -419,12 +435,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 <td style="text-align: center;">
                     <div class="qty-control">
                         <button class="qty-btn qty-minus" data-id="${item.id}">-</button>
-                        <input type="number" class="row-qty qty-input" data-id="${item.id}" value="${item.quantity}" min="0">
+                        <input type="number" class="row-qty qty-input" data-id="${item.id}" value="${item.quantity}" min="0" style="${qtyColorStyle}">
                         <button class="qty-btn qty-plus" data-id="${item.id}">+</button>
                     </div>
                 </td>
                 <td class="row-total">${rowTotal.toLocaleString()}</td>
-                <td><input type="text" class="row-memo" data-id="${item.id}" value="${item.memo}" placeholder="메모"></td>
+                <td><input type="text" class="row-memo" data-id="${item.id}" value="${item.memo}"></td>
                 <td><button class="del-row-btn" data-id="${item.id}"><i class="fa-solid fa-trash"></i></button></td>
             `;
             tbody.appendChild(tr);

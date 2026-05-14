@@ -43,7 +43,8 @@
                         3</button>
                 </div>
                 <div class="receipt-header">
-                    <div style="display: flex; gap: 10px; margin-top: 5px; align-items: center;">
+                    <div id="current-time-display" style="color: var(--text-mut); font-size: 11px; margin-bottom: 3px; text-align: left; margin-top: -5px;"></div>
+                    <div style="display: flex; gap: 10px; align-items: center;">
                         <input type="text" id="session-memo" placeholder="전체 메모"
                             style="flex:1;">
                         <div class="mic-wrapper" style="margin: 0; width: 44px; height: 44px;">
@@ -55,11 +56,9 @@
                     </div>
                     <div style="display:flex; justify-content:space-between; align-items:center; margin-top:5px;">
                         <div id="voice-status" style="color: var(--primary); font-weight: 600; font-size: 14px;">마이크 버튼을 눌러 시작하세요</div>
-                        <span style="font-size:11px; color:#94a3b8; font-weight:500;">v3.3</span>
+                        <span style="font-size:11px; color:#94a3b8; font-weight:500;">v3.4</span>
                     </div>
                     <div id="voice-transcript" style="color: var(--text-mut); font-style: italic; font-size: 14px; min-height: 20px;"></div>
-                    <div id="current-time-display"
-                        style="color: var(--text-mut); font-size: 14px; text-align: right; margin-top: 2px;"></div>
                 </div>
 
                 <div class="receipt-list-container">
@@ -68,7 +67,7 @@
                             <tr>
                                 <th width="24" style="text-align: center; font-size: 11px; padding: 8px 4px;">NO</th>
                                 <th>단가</th>
-                                <th width="110" style="text-align: center;">수량</th>
+                                <th width="75" style="text-align: center;">수량</th>
                                 <th>합계</th>
                                 <th>항목 메모</th>
                                 <th width="32"></th>

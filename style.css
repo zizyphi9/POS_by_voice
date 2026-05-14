@@ -109,6 +109,10 @@ body {
     color: var(--text-mut);
     font-weight: 500;
     border-bottom: 2px solid var(--border);
+    position: sticky;
+    top: 0;
+    background: var(--card);
+    z-index: 5;
 }
 
 .receipt-table td {
@@ -133,11 +137,11 @@ body {
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 4px;
+    gap: 2px;
 }
 .qty-btn {
-    width: 26px;
-    height: 26px;
+    width: 22px;
+    height: 22px;
     border-radius: 4px;
     border: 1px solid var(--border);
     background: white;
@@ -148,6 +152,7 @@ body {
     align-items: center;
     justify-content: center;
     transition: 0.1s;
+    font-size: 14px;
 }
 .qty-btn:active {
     background: var(--primary);
@@ -155,14 +160,14 @@ body {
     border-color: var(--primary);
 }
 .qty-input {
-    width: 40px;
+    width: 26px;
     text-align: center;
     border: 1px solid transparent;
     border-radius: 4px;
-    font-size: 16px;
+    font-size: 15px;
     font-weight: 600;
     background: transparent;
-    padding: 4px;
+    padding: 0;
 }
 .qty-input:focus {
     border-color: var(--border);
@@ -524,12 +529,12 @@ body {
 /* Responsive for Mobile */
 @media (max-width: 768px) {
     .app-container {
-        height: auto;
-        min-height: 100vh;
+        height: 100dvh;
+        overflow: hidden;
     }
     .main-content {
         flex-direction: column;
-        overflow: visible;
+        overflow: hidden;
     }
     .receipt-panel, .control-panel {
         flex: none;
@@ -537,12 +542,15 @@ body {
         border-right: none;
     }
     .receipt-panel {
-        border-bottom: 1px solid var(--border);
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
     }
     .receipt-list-container {
-        overflow-x: auto; /* Allow horizontal scroll for table if too wide */
-        overflow-y: visible;
-        padding: 10px 15px;
+        flex: 1;
+        overflow-y: auto;
+        padding: 10px 10px;
     }
     .voice-card {
         padding: 20px 15px;
