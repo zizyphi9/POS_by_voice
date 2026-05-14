@@ -511,7 +511,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 tooltip.style.display = 'none';
             };
 
-            inp.addEventListener('touchstart', showTooltip, {passive: true});
+            inp.addEventListener('touchstart', showTooltip, { passive: true });
             inp.addEventListener('touchend', hideTooltip);
             inp.addEventListener('mousedown', showTooltip);
             inp.addEventListener('mouseup', hideTooltip);
