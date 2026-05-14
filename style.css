@@ -137,14 +137,13 @@ body {
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 2px;
+    gap: 0;
 }
 .qty-btn {
-    width: 22px;
-    height: 22px;
-    border-radius: 4px;
+    width: 24px;
+    height: 24px;
+    background: #f8fafc;
     border: 1px solid var(--border);
-    background: white;
     font-weight: bold;
     cursor: pointer;
     color: var(--text-mut);
@@ -154,19 +153,28 @@ body {
     transition: 0.1s;
     font-size: 14px;
 }
+.qty-minus {
+    border-radius: 4px 0 0 4px;
+    border-right: none;
+}
+.qty-plus {
+    border-radius: 0 4px 4px 0;
+    border-left: none;
+}
 .qty-btn:active {
     background: var(--primary);
     color: white;
     border-color: var(--primary);
 }
 .qty-input {
-    width: 26px;
+    width: 28px;
+    height: 24px;
     text-align: center;
-    border: 1px solid transparent;
-    border-radius: 4px;
+    border: 1px solid var(--border);
+    border-radius: 0;
     font-size: 15px;
     font-weight: 600;
-    background: transparent;
+    background: white;
     padding: 0;
 }
 .qty-input:focus {

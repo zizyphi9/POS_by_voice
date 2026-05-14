@@ -151,8 +151,16 @@ document.addEventListener('DOMContentLoaded', () => {
     // 모바일 화면 꺼짐/켜짐 복구
     document.addEventListener("visibilitychange", () => {
         if (document.visibilityState === 'visible') {
-            if (!userStopped && !isListening && recognition) {
-                try { recognition.start(); } catch (e) { }
+            if (!userStopped && recognition) {
+                try { recognition.stop(); } catch (e) { }
+                setTimeout(() => {
+                    if (!isListening) {
+                        try { recognition.start(); } catch (e) {
+                            initSpeechRecognition();
+                            try { recognition.start(); } catch (e2) { }
+                        }
+                    }
+                }, 300);
             }
         }
     });
@@ -191,13 +199,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function resetCurrentTab() {
         if (!confirm("현재 화면을 정말 초기화할까요?")) return;
-        
+
         sessionsData[currentTab].items = [];
         sessionsData[currentTab].memo = '';
         sessionsData[currentTab].extraDiscount = 0;
         sessionsData[currentTab].historyId = null;
         items = sessionsData[currentTab].items;
-        
+
         document.getElementById('session-memo').value = '';
         document.getElementById('extra-discount').value = '';
         renderItems();
@@ -333,7 +341,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 amount: amount,
                 quantity: qty,
                 memo: memo,
-                discountRate: 0
+                discountRate: 0,
+                itemDiscount: 0
             };
         }
         return null;
@@ -412,7 +421,7 @@ document.addEventListener('DOMContentLoaded', () => {
         let itemsTotal = 0;
 
         items.forEach((item, index) => {
-            let rowTotal = item.amount * item.quantity;
+            let rowTotal = (item.amount * item.quantity) - (item.itemDiscount || 0);
             itemsTotal += rowTotal;
 
             let qtyColorStyle = item.quantity > 1 ? 'color: var(--danger);' : '';
@@ -420,7 +429,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const tr = document.createElement('tr');
             tr.innerHTML = `
                 <td style="text-align: center; font-weight: bold; color: var(--text-mut); font-size: 11px;">${index + 1}</td>
-                <td><input type="text" class="row-amount num-input" data-id="${item.id}" value="${item.amount.toLocaleString()}"></td>
+                <td style="text-align: center;"><input type="text" class="row-amount num-input" data-id="${item.id}" value="${item.amount.toLocaleString()}"></td>
                 <td style="text-align: center;">
                     <div class="qty-control">
                         <button class="qty-btn qty-minus" data-id="${item.id}">-</button>
@@ -428,9 +437,12 @@ document.addEventListener('DOMContentLoaded', () => {
                         <button class="qty-btn qty-plus" data-id="${item.id}">+</button>
                     </div>
                 </td>
-                <td class="row-total">${rowTotal.toLocaleString()}</td>
-                <td><input type="text" class="row-memo" data-id="${item.id}" value="${item.memo}"></td>
-                <td><button class="del-row-btn" data-id="${item.id}"><i class="fa-solid fa-trash"></i></button></td>
+                <td class="row-total item-total-btn" data-id="${item.id}" style="cursor: pointer; text-decoration: underline; text-decoration-color: #cbd5e1; text-underline-offset: 4px; text-align: center;" title="항목 할인 설정">
+                    ${rowTotal.toLocaleString()}
+                    ${(item.itemDiscount > 0) ? `<br><span style="color:var(--danger); font-size:11px; font-weight:bold;">(-${item.itemDiscount.toLocaleString()})</span>` : ''}
+                </td>
+                <td style="text-align: center;"><input type="text" class="row-memo" data-id="${item.id}" value="${item.memo}"></td>
+                <td style="text-align: center;"><button class="del-row-btn" data-id="${item.id}"><i class="fa-solid fa-trash"></i></button></td>
             `;
             tbody.appendChild(tr);
         });
@@ -513,11 +525,11 @@ document.addEventListener('DOMContentLoaded', () => {
             panel.style.backgroundColor = '#dcfce7';
             footer.style.backgroundColor = '#dcfce7';
         }
-        
+
         document.getElementById('session-memo').value = sessionsData[currentTab].memo;
         let ed = sessionsData[currentTab].extraDiscount || 0;
         document.getElementById('extra-discount').value = ed > 0 ? ed.toLocaleString() : '';
-        
+
         renderItems();
     }
     initializeTabs();
@@ -531,7 +543,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (items.length === 0) return;
         const now = new Date();
         let history = JSON.parse(localStorage.getItem('calcHistory') || '[]');
-        
+
         let total = items.reduce((acc, it) => acc + (it.amount * it.quantity), 0) - (sessionsData[currentTab].extraDiscount || 0);
         let histId = sessionsData[currentTab].historyId;
 
@@ -610,38 +622,7 @@ document.addEventListener('DOMContentLoaded', () => {
         renderItems();
     });
 
-    // --- Discount Popup Logic ---
-    document.getElementById('total-sum').addEventListener('click', () => {
-        document.getElementById('popup-discount-input').value = '';
-        document.getElementById('discount-modal').classList.add('active');
-    });
-
-    document.getElementById('close-discount-modal').addEventListener('click', () => {
-        document.getElementById('discount-modal').classList.remove('active');
-    });
-
-    document.getElementById('discount-10-btn').addEventListener('click', () => {
-        let itemsTotal = items.reduce((acc, it) => acc + (it.amount * it.quantity), 0);
-        let disc = Math.floor(itemsTotal * 0.1);
-        sessionsData[currentTab].extraDiscount = disc;
-        extraInput.value = disc > 0 ? disc.toLocaleString() : '';
-        document.getElementById('discount-modal').classList.remove('active');
-        renderItems();
-    });
-
-    const popupInput = document.getElementById('popup-discount-input');
-    popupInput.addEventListener('input', (e) => {
-        let val = parseInt(e.target.value.replace(/,/g, '')) || 0;
-        e.target.value = val > 0 ? val.toLocaleString() : '';
-    });
-
-    document.getElementById('popup-discount-apply').addEventListener('click', () => {
-        let val = parseInt(popupInput.value.replace(/,/g, '')) || 0;
-        sessionsData[currentTab].extraDiscount = val;
-        extraInput.value = val > 0 ? val.toLocaleString() : '';
-        document.getElementById('discount-modal').classList.remove('active');
-        renderItems();
-    });
+    // (Overall discount logic removed as requested)
 
     document.getElementById('session-memo').addEventListener('input', (e) => {
         sessionsData[currentTab].memo = e.target.value;
@@ -696,10 +677,10 @@ document.addEventListener('DOMContentLoaded', () => {
         let html = '';
         history.forEach(session => {
             const created = new Date(session.createdAt || session.id).toLocaleString();
-            const updatedStr = session.updatedAt && session.updatedAt !== (session.createdAt || session.id) 
-                ? `<span style="font-size:11px; color:#f59e0b; margin-left:5px;">(수정: ${new Date(session.updatedAt).toLocaleString()})</span>` 
+            const updatedStr = session.updatedAt && session.updatedAt !== (session.createdAt || session.id)
+                ? `<span style="font-size:11px; color:#f59e0b; margin-left:5px;">(수정: ${new Date(session.updatedAt).toLocaleString()})</span>`
                 : '';
-                
+
             html += `
             <div class="history-card" style="border:1px solid #e2e8f0; margin-bottom:10px; padding:10px; border-radius:8px; background: white;">
                 <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #f1f5f9; padding-bottom:8px; margin-bottom:8px;">
@@ -733,7 +714,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 loadHistoryToTab(id);
             });
         });
-        
+
         // Handle individual checkbox change to update 'select all'
         document.querySelectorAll('.hist-checkbox').forEach(cb => {
             cb.addEventListener('change', () => {
@@ -752,7 +733,7 @@ document.addEventListener('DOMContentLoaded', () => {
             sessionsData[currentTab].extraDiscount = session.extraDiscount || 0;
             sessionsData[currentTab].historyId = id;
             items = sessionsData[currentTab].items;
-            
+
             document.getElementById('history-modal').classList.remove('active');
             initializeTabs();
             alert('기록이 현재 화면으로 불러와졌습니다. 수정 후 저장하면 기존 기록이 업데이트됩니다.');
@@ -778,6 +759,114 @@ document.addEventListener('DOMContentLoaded', () => {
             localStorage.setItem('calcHistory', JSON.stringify(history));
             renderHistory();
         }
+    });
+
+    // --- Side Menu & Modals ---
+    document.getElementById('menu-btn') && document.getElementById('menu-btn').addEventListener('click', () => {
+        document.getElementById('side-menu-overlay').style.display = 'block';
+        document.getElementById('side-menu').style.right = '0';
+    });
+
+    function closeMenu() {
+        document.getElementById('side-menu').style.right = '-300px';
+        setTimeout(() => {
+            document.getElementById('side-menu-overlay').style.display = 'none';
+        }, 300);
+    }
+    document.getElementById('close-menu-btn') && document.getElementById('close-menu-btn').addEventListener('click', closeMenu);
+    document.getElementById('side-menu-overlay') && document.getElementById('side-menu-overlay').addEventListener('click', closeMenu);
+
+    document.getElementById('menu-history-btn') && document.getElementById('menu-history-btn').addEventListener('click', () => {
+        closeMenu();
+        const now = new Date();
+        const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
+        const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
+
+        const formatLocal = (d) => {
+            const pad = n => n.toString().padStart(2, '0');
+            return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+        };
+
+        document.getElementById('hist-datetime-start').value = formatLocal(startOfDay);
+        document.getElementById('hist-datetime-end').value = formatLocal(endOfDay);
+        renderHistory();
+        document.getElementById('history-modal').classList.add('active');
+    });
+
+    document.getElementById('menu-manual-btn') && document.getElementById('menu-manual-btn').addEventListener('click', () => {
+        closeMenu();
+        document.getElementById('manual-modal').classList.add('active');
+    });
+
+    document.getElementById('close-manual-btn') && document.getElementById('close-manual-btn').addEventListener('click', () => {
+        document.getElementById('manual-modal').classList.remove('active');
+    });
+
+    document.getElementById('menu-info-btn') && document.getElementById('menu-info-btn').addEventListener('click', () => {
+        closeMenu();
+        document.getElementById('info-modal').classList.add('active');
+    });
+
+    document.getElementById('close-info-btn') && document.getElementById('close-info-btn').addEventListener('click', () => {
+        document.getElementById('info-modal').classList.remove('active');
+    });
+
+    // --- Item Discount Logic ---
+    let currentDiscountItemId = null;
+    document.getElementById('receipt-body').addEventListener('click', (e) => {
+        const btn = e.target.closest('.item-total-btn');
+        if (btn) {
+            currentDiscountItemId = btn.dataset.id;
+            document.getElementById('item-popup-discount-input').value = '';
+            document.getElementById('item-discount-modal').classList.add('active');
+        }
+    });
+
+    document.getElementById('close-item-discount-modal') && document.getElementById('close-item-discount-modal').addEventListener('click', () => {
+        document.getElementById('item-discount-modal').classList.remove('active');
+    });
+
+    document.getElementById('item-discount-10-btn') && document.getElementById('item-discount-10-btn').addEventListener('click', () => {
+        if (!currentDiscountItemId) return;
+        let item = items.find(i => i.id == currentDiscountItemId);
+        if (item) {
+            let baseTotal = item.amount * item.quantity;
+            item.itemDiscount = Math.floor(baseTotal * 0.1);
+            renderItems();
+            saveSessionState();
+        }
+        document.getElementById('item-discount-modal').classList.remove('active');
+    });
+
+    const itemPopupInput = document.getElementById('item-popup-discount-input');
+    if (itemPopupInput) {
+        itemPopupInput.addEventListener('input', (e) => {
+            let val = parseInt(e.target.value.replace(/,/g, '')) || 0;
+            e.target.value = val > 0 ? val.toLocaleString() : '';
+        });
+    }
+
+    document.getElementById('item-popup-discount-apply') && document.getElementById('item-popup-discount-apply').addEventListener('click', () => {
+        if (!currentDiscountItemId) return;
+        let val = parseInt(itemPopupInput.value.replace(/,/g, '')) || 0;
+        let item = items.find(i => i.id == currentDiscountItemId);
+        if (item) {
+            item.itemDiscount = val;
+            renderItems();
+            saveSessionState();
+        }
+        document.getElementById('item-discount-modal').classList.remove('active');
+    });
+
+    document.getElementById('item-discount-cancel-btn') && document.getElementById('item-discount-cancel-btn').addEventListener('click', () => {
+        if (!currentDiscountItemId) return;
+        let item = items.find(i => i.id == currentDiscountItemId);
+        if (item) {
+            item.itemDiscount = 0;
+            renderItems();
+            saveSessionState();
+        }
+        document.getElementById('item-discount-modal').classList.remove('active');
     });
 
 });
