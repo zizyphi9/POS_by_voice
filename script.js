@@ -27,7 +27,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let userStopped = false;
     let silenceTimer = null;
     let lastProcessedText = "";
-    
+
     // Accumulators to fix Android duplication bugs
     let globalAccumulator = "";
     let sessionResultCount = 0;
@@ -41,7 +41,7 @@ document.addEventListener('DOMContentLoaded', () => {
         recognition = new SpeechRecognition();
         recognition.lang = 'ko-KR';
         recognition.interimResults = true;
-        recognition.continuous = true;
+        recognition.continuous = false;
 
         micBtn.addEventListener('click', () => {
             if (isListening) {
@@ -103,7 +103,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     interim += e.results[i][0].transcript;
                 }
             }
-            
+
             let currentText = (globalAccumulator + interim).trim();
             voiceTranscript.textContent = currentText;
 
@@ -111,18 +111,18 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (currentText && currentText !== lastProcessedText) {
                     lastProcessedText = currentText;
                     processVoiceCommand(currentText);
-                    
+
                     // 초기화 및 재시작 유도
                     globalAccumulator = "";
                     lastFinalText = "";
-                    
+
                     // 처리 완료 후 깨끗한 상태로 다시 시작하기 위해 stop 호출
-                    try { recognition.stop(); } catch (err) {}
+                    try { recognition.stop(); } catch (err) { }
                 }
             }, 1200); // 1.2 seconds silence triggers processing
         };
 
-        try { recognition.start(); } catch (e) {}
+        try { recognition.start(); } catch (e) { }
     } else {
         voiceStatus.textContent = "현재 브라우저는 음성 인식을 지원하지 않습니다.";
     }
@@ -130,7 +130,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- Command Processing ---
     function processVoiceCommand(text) {
         text = text.replace(/\./g, '').trim();
-        
+
         if (text.includes('초기화') || text.includes('전부 지워')) {
             resetToFirstScreen();
             return;
@@ -202,7 +202,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
         }
-        
+
         // "아니 3개 말고 5개" 등 수량 수정
         const qtyRegex = /([0-9가-힣]+)\s*개\s*말고\s*([0-9가-힣]+)\s*개/g;
         while ((match = qtyRegex.exec(text)) !== null) {
@@ -220,20 +220,20 @@ document.addEventListener('DOMContentLoaded', () => {
     function splitIntoSubItems(str) {
         let parts = str.split('원');
         if (parts.length <= 1) return [str];
-        
+
         let results = [];
         for (let i = 0; i < parts.length - 1; i++) {
             let chunk = parts[i] + '원';
-            let next = (parts[i+1] || '').trim();
+            let next = (parts[i + 1] || '').trim();
             let qtyMatch = next.match(/^([0-9가-힣]+)\s*개/);
             if (qtyMatch) {
                 chunk += ' ' + qtyMatch[0];
-                parts[i+1] = next.slice(qtyMatch[0].length);
+                parts[i + 1] = next.slice(qtyMatch[0].length);
             } else {
                 let multMatch = next.match(/^곱하기\s*([0-9가-힣]+)/);
                 if (multMatch) {
                     chunk += ' ' + multMatch[0];
-                    parts[i+1] = next.slice(multMatch[0].length);
+                    parts[i + 1] = next.slice(multMatch[0].length);
                 }
             }
             if (chunk.trim()) results.push(chunk.trim());
@@ -420,7 +420,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- Buttons & Interactions ---
     document.getElementById('reset-btn').addEventListener('click', resetToFirstScreen);
-    
+
     document.getElementById('save-btn').addEventListener('click', saveHistory);
 
     function saveHistory() {
@@ -438,14 +438,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
         let history = JSON.parse(localStorage.getItem('calcHistory') || '[]');
         history.push(session);
-        
+
         // Keep only latest 30 records
         if (history.length > 30) {
             history = history.slice(history.length - 30);
         }
-        
+
         localStorage.setItem('calcHistory', JSON.stringify(history));
-        
+
         // Reset current
         items = [];
         sessionsData[currentTab].items = items;
@@ -469,7 +469,7 @@ document.addEventListener('DOMContentLoaded', () => {
             currentTab = parseInt(e.target.dataset.tab);
             items = sessionsData[currentTab].items;
             document.getElementById('session-memo').value = sessionsData[currentTab].memo;
-            
+
             const panel = document.getElementById('receipt-panel');
             if (currentTab === 0) panel.style.backgroundColor = '#ffffff';
             else if (currentTab === 1) panel.style.backgroundColor = '#fdf2f8';
@@ -533,7 +533,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         history.sort((a, b) => b.id - a.id);
-        
+
         let html = '';
         history.forEach(session => {
             html += `
