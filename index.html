@@ -17,7 +17,9 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         /* 모바일에서 아래로 쓸어내려 새로고침되는 현상 방지 */
-        body { overscroll-behavior-y: contain; }
+        body {
+            overscroll-behavior-y: contain;
+        }
     </style>
 </head>
 
@@ -25,7 +27,8 @@
     <div class="app-container">
         <header class="app-header">
             <h1><i class="fa-solid fa-calculator"></i> 스마트 음성 계산기</h1>
-            <button id="menu-btn" class="header-btn" style="font-size:20px; padding:8px 12px;"><i class="fa-solid fa-bars"></i></button>
+            <button id="menu-btn" class="header-btn" style="font-size:20px; padding:8px 12px;"><i
+                    class="fa-solid fa-bars"></i></button>
         </header>
 
         <div class="main-content">
@@ -43,10 +46,11 @@
                         3</button>
                 </div>
                 <div class="receipt-header">
-                    <div id="current-time-display" style="color: var(--text-mut); font-size: 11px; margin-bottom: 3px; text-align: left; margin-top: -5px;"></div>
+                    <div id="current-time-display"
+                        style="color: var(--text-mut); font-size: 11px; margin-bottom: 3px; text-align: left; margin-top: -5px;">
+                    </div>
                     <div style="display: flex; gap: 10px; align-items: center;">
-                        <input type="text" id="session-memo" placeholder="전체 메모"
-                            style="flex:1;">
+                        <input type="text" id="session-memo" placeholder="전체 메모" style="flex:1;">
                         <div class="mic-wrapper" style="margin: 0; width: 44px; height: 44px;">
                             <button id="mic-btn" class="mic-btn" style="font-size: 20px;">
                                 <i class="fa-solid fa-microphone"></i>
@@ -55,10 +59,12 @@
                         </div>
                     </div>
                     <div style="display:flex; justify-content:space-between; align-items:center; margin-top:5px;">
-                        <div id="voice-status" style="color: var(--primary); font-weight: 600; font-size: 14px;">마이크 버튼을 눌러 시작하세요</div>
+                        <div id="voice-status" style="color: var(--primary); font-weight: 600; font-size: 14px;">마이크 버튼을
+                            눌러 시작하세요</div>
                         <span style="font-size:11px; color:#94a3b8; font-weight:500;">v3.5</span>
                     </div>
-                    <div id="voice-transcript" style="color: var(--text-mut); font-style: italic; font-size: 14px; min-height: 20px;"></div>
+                    <div id="voice-transcript"
+                        style="color: var(--text-mut); font-style: italic; font-size: 14px; min-height: 20px;"></div>
                 </div>
 
                 <div class="receipt-list-container">
@@ -81,22 +87,25 @@
 
                 <div class="receipt-footer">
                     <div class="total-row">
-                        <div style="display: flex; flex-direction: column; align-items: flex-start; gap: 8px; width: 100%;">
+                        <div
+                            style="display: flex; flex-direction: column; align-items: flex-start; gap: 8px; width: 100%;">
                             <span>총 합계</span>
-                            <div style="display: flex; align-items: center; justify-content: space-between; width: 100%; flex-wrap: wrap; gap: 10px;">
+                            <div
+                                style="display: flex; align-items: center; justify-content: space-between; width: 100%; flex-wrap: wrap; gap: 10px;">
                                 <div style="display: flex; align-items: center; font-size: 15px; font-weight: 500;">
-                                    추가 할인: <span style="margin: 0 5px; font-size: 20px; color: var(--danger); font-weight: bold;">-</span> 
-                                    <input type="text" id="extra-discount" placeholder="0" inputmode="numeric" pattern="[0-9]*"
-                                        style="width: 80px; text-align: right; margin: 0 5px; border: 1px solid #cbd5e1; border-radius: 4px; padding: 4px;"
+                                    추가 할인: <span
+                                        style="margin: 0 5px; font-size: 20px; color: var(--danger); font-weight: bold;">-</span>
+                                    <input type="text" id="extra-discount" placeholder="0" inputmode="numeric"
+                                        pattern="[0-9]*" readonly title="클릭하여 추가 할인 설정"
+                                        style="width: 80px; text-align: right; margin: 0 5px; border: 1px solid #cbd5e1; border-radius: 4px; padding: 4px; cursor: pointer; background: white;"
                                         class="num-input"> 원
-                                    <button id="apply-discount-btn" style="margin-left:8px; padding:6px 10px; font-size:12px; background:var(--primary); color:white; border:none; border-radius:4px; cursor:pointer;">적용</button>
-                                    <button id="cancel-discount-btn" style="margin-left:4px; padding:6px 10px; font-size:12px; background:#f1f5f9; color:var(--text-mut); border:1px solid #cbd5e1; border-radius:4px; cursor:pointer;">취소</button>
                                 </div>
                             </div>
                         </div>
-                        <div style="display: flex; flex-direction: column; align-items: flex-end;">
+                        <div style="display: flex; flex-direction: column; align-items: flex-end; white-space: nowrap;">
                             <span id="total-sum" class="total-sum">0원</span>
-                            <span id="applied-discount-text" style="color: var(--danger); font-size: 14px; font-weight: 600; margin-top: 4px;"></span>
+                            <span id="applied-discount-text"
+                                style="color: var(--danger); font-size: 14px; font-weight: 600; margin-top: 4px;"></span>
                         </div>
                     </div>
                     <div style="display: flex; gap: 10px; width: 100%;">
@@ -115,16 +124,20 @@
         <div class="modal-content">
             <div class="modal-header">
                 <div class="hist-filter">
-                    <input type="datetime-local" id="hist-datetime-start"> ~ 
+                    <input type="datetime-local" id="hist-datetime-start"> ~
                     <input type="datetime-local" id="hist-datetime-end">
                     <button id="hist-search-btn">검색</button>
                 </div>
                 <button class="close-modal" id="close-modal-btn"><i class="fa-solid fa-xmark"></i></button>
             </div>
-            <div style="padding:10px 15px; display:flex; justify-content:space-between; align-items:center; background:#f8fafc; border-bottom:1px solid #e2e8f0; font-size:14px;">
-                <label style="display:flex; align-items:center; gap:5px;"><input type="checkbox" id="hist-select-all"> 전체 선택</label>
+            <div
+                style="padding:10px 15px; display:flex; justify-content:space-between; align-items:center; background:#f8fafc; border-bottom:1px solid #e2e8f0; font-size:14px;">
+                <label style="display:flex; align-items:center; gap:5px;"><input type="checkbox" id="hist-select-all">
+                    전체 선택</label>
                 <div style="display:flex; gap:10px;">
-                    <button id="hist-delete-selected-btn" style="background:#ef4444; color:white; border:none; padding:6px 12px; border-radius:4px; font-weight:600; cursor:pointer;">선택 삭제</button>
+                    <button id="hist-delete-selected-btn"
+                        style="background:#ef4444; color:white; border:none; padding:6px 12px; border-radius:4px; font-weight:600; cursor:pointer;">선택
+                        삭제</button>
                 </div>
             </div>
             <div class="history-list" id="history-list"></div>
@@ -135,33 +148,48 @@
     <div id="discount-modal" class="modal">
         <div class="modal-content" style="width: 320px; padding: 25px; text-align: center;">
             <h3 style="margin-top:0; color:var(--primary); margin-bottom:20px;">할인 적용</h3>
-            <button id="discount-10-btn" style="width:100%; padding:15px; margin-bottom:15px; background:var(--primary); color:white; border:none; border-radius:8px; font-size:16px; font-weight:bold; cursor:pointer;">전체 금액 10% 할인</button>
+            <button id="discount-10-btn"
+                style="width:100%; padding:15px; margin-bottom:15px; background:var(--primary); color:white; border:none; border-radius:8px; font-size:16px; font-weight:bold; cursor:pointer;">전체
+                금액 10% 할인</button>
             <div style="display:flex; align-items:center; gap:8px; margin-bottom:15px;">
-                <input type="text" id="popup-discount-input" class="num-input" placeholder="임의 할인 금액 입력" style="flex:1; padding:12px; border:1px solid var(--border); border-radius:8px; font-size:15px; text-align:right;">
-                <button id="popup-discount-apply" style="padding:12px 20px; background:#10b981; color:white; border:none; border-radius:8px; font-weight:bold; cursor:pointer;">적용</button>
+                <input type="text" id="popup-discount-input" class="num-input" placeholder="임의 할인 금액 입력"
+                    style="flex:1; padding:12px; border:1px solid var(--border); border-radius:8px; font-size:15px; text-align:right;">
+                <button id="popup-discount-apply"
+                    style="padding:12px 20px; background:#10b981; color:white; border:none; border-radius:8px; font-weight:bold; cursor:pointer;">적용</button>
             </div>
-            <button class="close-modal" id="close-discount-modal" style="width:100%; padding:12px; background:#f1f5f9; color:var(--text-mut); border:none; border-radius:8px; font-weight:bold; cursor:pointer;">닫기</button>
+            <button class="close-modal" id="close-discount-modal"
+                style="width:100%; padding:12px; background:#f1f5f9; color:var(--text-mut); border:none; border-radius:8px; font-weight:bold; cursor:pointer;">닫기</button>
         </div>
     </div>
 
     <!-- Side Menu -->
-    <div id="side-menu-overlay" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:90;"></div>
-    <div id="side-menu" style="position:fixed; top:0; right:-300px; width:280px; height:100%; background:white; z-index:100; transition:0.3s; box-shadow:-5px 0 15px rgba(0,0,0,0.1); display:flex; flex-direction:column;">
-        <div style="padding:20px; border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:center;">
+    <div id="side-menu-overlay" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:90;">
+    </div>
+    <div id="side-menu"
+        style="position:fixed; top:0; right:-300px; width:280px; height:100%; background:white; z-index:100; transition:0.3s; box-shadow:-5px 0 15px rgba(0,0,0,0.1); display:flex; flex-direction:column;">
+        <div
+            style="padding:20px; border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:center;">
             <h2 style="margin:0; font-size:18px; color:var(--primary);">메뉴</h2>
-            <button id="close-menu-btn" style="background:none; border:none; font-size:24px; color:var(--text-mut); cursor:pointer;"><i class="fa-solid fa-xmark"></i></button>
+            <button id="close-menu-btn"
+                style="background:none; border:none; font-size:24px; color:var(--text-mut); cursor:pointer;"><i
+                    class="fa-solid fa-xmark"></i></button>
         </div>
         <div style="flex:1; padding:20px; display:flex; flex-direction:column; gap:15px;">
-            <button id="menu-history-btn" class="header-btn" style="width:100%; text-align:left; padding:15px;"><i class="fa-solid fa-clock-rotate-left" style="width:24px;"></i> 과거 기록 보기</button>
-            <button id="menu-manual-btn" class="header-btn" style="width:100%; text-align:left; padding:15px;"><i class="fa-solid fa-book" style="width:24px;"></i> 앱 사용 설명서</button>
-            <button id="menu-info-btn" class="header-btn" style="width:100%; text-align:left; padding:15px;"><i class="fa-solid fa-circle-info" style="width:24px;"></i> 앱 정보</button>
+            <button id="menu-history-btn" class="header-btn" style="width:100%; text-align:left; padding:15px;"><i
+                    class="fa-solid fa-clock-rotate-left" style="width:24px;"></i> 과거 기록 보기</button>
+            <button id="menu-manual-btn" class="header-btn" style="width:100%; text-align:left; padding:15px;"><i
+                    class="fa-solid fa-book" style="width:24px;"></i> 앱 사용 설명서</button>
+            <button id="menu-info-btn" class="header-btn" style="width:100%; text-align:left; padding:15px;"><i
+                    class="fa-solid fa-circle-info" style="width:24px;"></i> 앱 정보</button>
         </div>
     </div>
 
     <!-- App Manual Modal -->
     <div id="manual-modal" class="modal">
         <div class="modal-content" style="width: 500px; padding: 25px; max-height:80vh; overflow-y:auto;">
-            <h3 style="margin-top:0; color:var(--primary); margin-bottom:20px; border-bottom:2px solid var(--border); padding-bottom:10px;">앱 사용 설명서</h3>
+            <h3
+                style="margin-top:0; color:var(--primary); margin-bottom:20px; border-bottom:2px solid var(--border); padding-bottom:10px;">
+                앱 사용 설명서</h3>
             <div style="font-size:15px; color:var(--text-main); line-height:1.6; text-align:left;">
                 <p><strong>🎙️ 음성 입력 방법</strong></p>
                 <ul style="padding-left:20px; margin-bottom:20px;">
@@ -181,7 +209,8 @@
                     <li>계산 완료 및 저장을 누르면 과거 기록에 저장되어 언제든 다시 불러올 수 있습니다.</li>
                 </ul>
             </div>
-            <button class="close-modal" id="close-manual-btn" style="width:100%; padding:12px; background:#f1f5f9; color:var(--text-mut); border:none; border-radius:8px; font-weight:bold; cursor:pointer; margin-top:20px;">닫기</button>
+            <button class="close-modal" id="close-manual-btn"
+                style="width:100%; padding:12px; background:#f1f5f9; color:var(--text-mut); border:none; border-radius:8px; font-weight:bold; cursor:pointer; margin-top:20px;">닫기</button>
         </div>
     </div>
 
@@ -195,7 +224,8 @@
                 <p><strong>이메일:</strong> zizyphi9@gmail.com</p>
                 <p><strong>저작권:</strong> Copyright © 2026. All rights reserved.</p>
             </div>
-            <button class="close-modal" id="close-info-btn" style="width:100%; padding:12px; background:#f1f5f9; color:var(--text-mut); border:none; border-radius:8px; font-weight:bold; cursor:pointer;">닫기</button>
+            <button class="close-modal" id="close-info-btn"
+                style="width:100%; padding:12px; background:#f1f5f9; color:var(--text-mut); border:none; border-radius:8px; font-weight:bold; cursor:pointer;">닫기</button>
         </div>
     </div>
 
@@ -203,14 +233,45 @@
     <div id="item-discount-modal" class="modal">
         <div class="modal-content" style="width: 320px; padding: 25px; text-align: center;">
             <h3 style="margin-top:0; color:var(--primary); margin-bottom:20px;">항목 할인 적용</h3>
-            <button id="item-discount-10-btn" style="width:100%; padding:15px; margin-bottom:15px; background:var(--primary); color:white; border:none; border-radius:8px; font-size:16px; font-weight:bold; cursor:pointer;">해당 항목 10% 할인</button>
+            <button id="item-discount-10-btn"
+                style="width:100%; padding:15px; margin-bottom:15px; background:var(--primary); color:white; border:none; border-radius:8px; font-size:16px; font-weight:bold; cursor:pointer;">해당
+                항목 10% 할인</button>
             <div style="display:flex; align-items:center; gap:8px; margin-bottom:15px;">
-                <input type="text" id="item-popup-discount-input" class="num-input" placeholder="임의 할인 금액 입력" style="flex:1; padding:12px; border:1px solid var(--border); border-radius:8px; font-size:15px; text-align:right;">
-                <button id="item-popup-discount-apply" style="padding:12px 20px; background:#10b981; color:white; border:none; border-radius:8px; font-weight:bold; cursor:pointer;">적용</button>
+                <input type="text" id="item-popup-discount-input" class="num-input" placeholder="임의 할인 금액 입력"
+                    style="flex:1; padding:12px; border:1px solid var(--border); border-radius:8px; font-size:15px; text-align:right;">
+                <button id="item-popup-discount-apply"
+                    style="padding:12px 20px; background:#10b981; color:white; border:none; border-radius:8px; font-weight:bold; cursor:pointer;">적용</button>
             </div>
-            <button id="item-discount-cancel-btn" style="width:100%; padding:12px; margin-bottom:10px; background:#ef4444; color:white; border:none; border-radius:8px; font-weight:bold; cursor:pointer;">할인 취소(원래 금액)</button>
-            <button class="close-modal" id="close-item-discount-modal" style="width:100%; padding:12px; background:#f1f5f9; color:var(--text-mut); border:none; border-radius:8px; font-weight:bold; cursor:pointer;">닫기</button>
+            <button id="item-discount-cancel-btn"
+                style="width:100%; padding:12px; margin-bottom:10px; background:#ef4444; color:white; border:none; border-radius:8px; font-weight:bold; cursor:pointer;">할인
+                취소(원래 금액)</button>
+            <button class="close-modal" id="close-item-discount-modal"
+                style="width:100%; padding:12px; background:#f1f5f9; color:var(--text-mut); border:none; border-radius:8px; font-weight:bold; cursor:pointer;">닫기</button>
         </div>
+    </div>
+
+    <!-- Extra Discount Modal -->
+    <div id="extra-discount-modal" class="modal">
+        <div class="modal-content" style="width: 320px; padding: 25px; text-align: center;">
+            <h3 style="margin-top:0; color:var(--primary); margin-bottom:20px;">전체 추가 할인 설정</h3>
+            <div style="display:flex; align-items:center; gap:8px; margin-bottom:15px;">
+                <input type="text" id="extra-popup-discount-input" class="num-input" placeholder="할인 금액 입력"
+                    style="flex:1; padding:12px; border:1px solid var(--border); border-radius:8px; font-size:15px; text-align:right;">
+            </div>
+            <button id="extra-popup-discount-apply"
+                style="width:100%; padding:12px 20px; margin-bottom:10px; background:#10b981; color:white; border:none; border-radius:8px; font-weight:bold; cursor:pointer; font-size: 16px;">할인
+                적용</button>
+            <button id="extra-popup-discount-cancel"
+                style="width:100%; padding:12px 20px; margin-bottom:10px; background:#ef4444; color:white; border:none; border-radius:8px; font-weight:bold; cursor:pointer; font-size: 16px;">할인
+                취소 (0원)</button>
+            <button class="close-modal" id="close-extra-discount-modal"
+                style="width:100%; padding:12px; background:#f1f5f9; color:var(--text-mut); border:none; border-radius:8px; font-weight:bold; cursor:pointer;">닫기</button>
+        </div>
+    </div>
+
+    <!-- Memo Tooltip -->
+    <div id="memo-tooltip"
+        style="display:none; position:fixed; background:rgba(15, 23, 42, 0.9); color:white; padding:10px 14px; border-radius:8px; font-size:14px; z-index:9999; pointer-events:none; max-width:80vw; box-shadow:0 4px 12px rgba(0,0,0,0.15); backdrop-filter:blur(4px); word-break:break-all;">
     </div>
 
     <script src="script.js"></script>
