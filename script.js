@@ -162,7 +162,7 @@ document.addEventListener('DOMContentLoaded', () => {
         text = text.replace(/\./g, '').trim();
 
         if (text.includes('초기화') || text.includes('전부 지워')) {
-            resetToFirstScreen();
+            resetCurrentTab();
             return;
         }
 
@@ -189,21 +189,9 @@ document.addEventListener('DOMContentLoaded', () => {
         if (added) renderItems();
     }
 
-    function resetToFirstScreen() {
-        if (!confirm("정말 초기화할까요?")) return;
-        // 첫 화면(결제 1 탭)으로 돌아가고 초기화
-        currentTab = 0;
-        document.querySelectorAll('.tab-btn').forEach(b => {
-            b.classList.remove('active');
-            b.style.color = 'var(--text-mut)';
-            if (parseInt(b.dataset.tab) === 0) {
-                b.classList.add('active');
-                b.style.color = 'var(--primary)';
-            }
-        });
-        const panel = document.getElementById('receipt-panel');
-        panel.style.backgroundColor = '#ffffff';
-
+    function resetCurrentTab() {
+        if (!confirm("현재 화면을 정말 초기화할까요?")) return;
+        
         sessionsData[currentTab].items = [];
         sessionsData[currentTab].memo = '';
         sessionsData[currentTab].extraDiscount = 0;
@@ -211,6 +199,7 @@ document.addEventListener('DOMContentLoaded', () => {
         items = sessionsData[currentTab].items;
         
         document.getElementById('session-memo').value = '';
+        document.getElementById('extra-discount').value = '0';
         renderItems();
         voiceTranscript.textContent = '';
     }
@@ -330,7 +319,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (amountParts.length > 0) {
             amountStr = amountParts.join('');
-            memo = memoParts.join(' ');
+            memo = memoParts.join(' ').replace(/^(그리고|더하기|하고|이랑|과|와|,|\+)\s*/g, '').trim();
         } else {
             return null; // 금액이 없으면 무효
         }
@@ -491,7 +480,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // 초기 렌더링 및 UI 설정 (저장된 탭 복구)
     function initializeTabs() {
-        document.querySelectorAll('.tab-btn').forEach(b => {
+        const tabBtns = document.querySelectorAll('.tab-btn');
+        tabBtns[0].style.backgroundColor = '#ffffff';
+        tabBtns[1].style.backgroundColor = '#fce7f3';
+        tabBtns[2].style.backgroundColor = '#dcfce7';
+
+        tabBtns.forEach(b => {
             b.classList.remove('active');
             b.style.color = 'var(--text-mut)';
             if (parseInt(b.dataset.tab) === currentTab) {
@@ -499,10 +493,19 @@ document.addEventListener('DOMContentLoaded', () => {
                 b.style.color = 'var(--primary)';
             }
         });
+
         const panel = document.getElementById('receipt-panel');
-        if (currentTab === 0) panel.style.backgroundColor = '#ffffff';
-        else if (currentTab === 1) panel.style.backgroundColor = '#fdf2f8';
-        else if (currentTab === 2) panel.style.backgroundColor = '#f0fdf4';
+        const footer = document.querySelector('.receipt-footer');
+        if (currentTab === 0) {
+            panel.style.backgroundColor = '#ffffff';
+            footer.style.backgroundColor = '#f8fafc';
+        } else if (currentTab === 1) {
+            panel.style.backgroundColor = '#fce7f3';
+            footer.style.backgroundColor = '#fce7f3';
+        } else if (currentTab === 2) {
+            panel.style.backgroundColor = '#dcfce7';
+            footer.style.backgroundColor = '#dcfce7';
+        }
         
         document.getElementById('session-memo').value = sessionsData[currentTab].memo;
         document.getElementById('extra-discount').value = (sessionsData[currentTab].extraDiscount || 0).toLocaleString();
@@ -512,7 +515,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initializeTabs();
 
     // --- Buttons & Interactions ---
-    document.getElementById('reset-btn').addEventListener('click', resetToFirstScreen);
+    document.getElementById('reset-btn').addEventListener('click', resetCurrentTab);
 
     document.getElementById('save-btn').addEventListener('click', saveHistory);
 
