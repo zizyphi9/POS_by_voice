@@ -5,7 +5,7 @@ document.addEventListener('DOMContentLoaded', () => {
         { items: [], memo: '', extraDiscount: 0 }
     ];
     let currentTab = 0;
-    
+
     let items = sessionsData[currentTab].items;
     let activeInput = null;
     let isNewKeypadEntry = false;
@@ -23,8 +23,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const ampm = h >= 12 ? '오후' : '오전';
         if (h > 12) h -= 12;
         if (h === 0) h = 12;
-        
-        document.getElementById('current-time-display').textContent = 
+
+        document.getElementById('current-time-display').textContent =
             `${y}년 ${m}월 ${d}일 ${day}요일, ${ampm} ${h}:${min}`;
     }
     setInterval(updateCurrentTime, 1000);
@@ -42,7 +42,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const voiceTranscript = document.getElementById('voice-transcript');
 
     let voiceTarget = null;
-    let isSessionDead = false; // 중복 입력 방지용 플래그
+    let isSessionDead = false;   // 중복 입력 방지용 플래그
+    let isProcessing = false;    // 처리 중 플래그 (silenceTimer vs onend 중복 방지)
+    let lastProcessedText = '';  // 마지막으로 처리한 텍스트 (동일 텍스트 재처리 방지)
+    let userStopped = false;     // 사용자가 직접 멈춘 경우 플래그
+    let resultIndex = 0;         // 안드로이드에서 result 누적 방지용 인덱스 추적
+    let isRestarting = false;    // 재시작 중 플래그
 
     if (SpeechRecognition) {
         recognition = new SpeechRecognition();
@@ -53,17 +58,24 @@ document.addEventListener('DOMContentLoaded', () => {
         micBtn.addEventListener('click', () => {
             try {
                 if (isListening) {
+                    userStopped = true;
+                    isRestarting = false;
+                    clearTimeout(silenceTimer);
                     recognition.stop();
                 } else {
-                    finalTranscript = '';
+                    userStopped = false;
+                    isProcessing = false;
+                    lastProcessedText = '';
+                    currentSpeechText = '';
                     voiceTarget = null;
+                    resultIndex = 0;
                     recognition.start();
                 }
             } catch (e) {
                 console.error("Mic toggle error:", e);
                 if (e.name === 'InvalidStateError') {
                     isListening = true;
-                    try { recognition.stop(); } catch(err){}
+                    try { recognition.stop(); } catch (err) { }
                 }
             }
         });
@@ -71,19 +83,23 @@ document.addEventListener('DOMContentLoaded', () => {
         recognition.onstart = () => {
             isListening = true;
             isSessionDead = false;
+            isProcessing = false;
+            resultIndex = 0;
             micBtn.classList.add('listening');
             voiceStatus.textContent = '듣고 있습니다... 언제든 멈추려면 버튼을 누르세요.';
         };
 
         recognition.onerror = (event) => {
             console.error('Speech recognition error:', event.error);
+            // 재시작 중 abort 에러는 무시
+            if (isRestarting && event.error === 'aborted') return;
             isListening = false;
             micBtn.classList.remove('listening');
             if (event.error === 'not-allowed') {
                 voiceStatus.textContent = '마이크 권한이 차단되었습니다. 사이트 설정에서 허용해주세요.';
             } else if (event.error === 'network') {
                 voiceStatus.textContent = '인터넷 연결을 확인해주세요.';
-            } else {
+            } else if (event.error !== 'aborted' && event.error !== 'no-speech') {
                 voiceStatus.textContent = '음성 인식 오류가 발생했습니다: ' + event.error;
             }
         };
@@ -92,30 +108,54 @@ document.addEventListener('DOMContentLoaded', () => {
             clearTimeout(silenceTimer);
             isListening = false;
             micBtn.classList.remove('listening');
-            
-            if (voiceStatus.textContent.includes('듣고 있습니다') || voiceStatus.textContent.includes('대기 중')) {
+
+            // 재시작 중일 때는 onend에서 처리하지 않음
+            if (isRestarting) {
+                isRestarting = false;
+                setTimeout(() => {
+                    if (!isListening && !userStopped) {
+                        try {
+                            isRestarting = false;
+                            recognition.start();
+                        } catch (e) { console.log('restart failed:', e); }
+                    }
+                }, 300);
+                return;
+            }
+
+            if (voiceStatus.textContent.includes('듣고 있습니다') || voiceStatus.textContent.includes('대기 중') || voiceStatus.textContent.includes('대기')) {
                 voiceStatus.textContent = '마이크 버튼을 눌러 시작하세요';
             }
-            
-            if (!isSessionDead && currentSpeechText) {
-                processVoiceCommand(currentSpeechText, voiceTarget);
+
+            // isProcessing이 아니고, 아직 처리 안 된 텍스트가 있고, 이전에 처리된 텍스트와 다를 때만 처리
+            if (!isProcessing && currentSpeechText && currentSpeechText !== lastProcessedText) {
+                isProcessing = true;
+                lastProcessedText = currentSpeechText;
+                let textToProcess = currentSpeechText;
+                currentSpeechText = '';
+                voiceTranscript.textContent = '';
+                voiceTarget = null;
+                processVoiceCommand(textToProcess, voiceTarget);
+            } else {
+                currentSpeechText = '';
+                voiceTranscript.textContent = '';
+                voiceTarget = null;
             }
-            
-            currentSpeechText = '';
-            voiceTranscript.textContent = '';
-            voiceTarget = null;
+
             isSessionDead = false;
+            isProcessing = false;
         };
 
         recognition.onresult = (event) => {
             if (isSessionDead) return;
-            
+
             clearTimeout(silenceTimer);
             if (!voiceTarget) voiceTarget = activeInput;
-            
+
             let finalT = '';
             let interimT = '';
-            // 안드로이드 중복 누적 버그 방지를 위해 항상 0부터 재조립
+            // 안드로이드 중복 누적 버그 방지: resultIndex 이후의 결과만 새로 쌓음
+            // 단, 매 onresult마다 전체를 재조립하되 resultIndex 이전은 이미 finalT에 포함됨
             for (let i = 0; i < event.results.length; ++i) {
                 if (event.results[i].isFinal) {
                     finalT += event.results[i][0].transcript + ' ';
@@ -123,51 +163,67 @@ document.addEventListener('DOMContentLoaded', () => {
                     interimT += event.results[i][0].transcript;
                 }
             }
-            
+
             currentSpeechText = (finalT + interimT).trim();
             voiceTranscript.textContent = currentSpeechText;
-            
+
             let combined = currentSpeechText;
             let delay = 1000;
-            
+
             // "원"으로 끝나면 수량이 뒤따라올 가능성이 높으므로 지연 시간을 늘림
             if (combined.endsWith('원') || combined.endsWith('원 ')) {
-                delay = 2000; 
+                delay = 2000;
             } else if (combined.endsWith('더하기') || combined.endsWith('+') || combined.endsWith('하고')) {
                 delay = 3000;
             } else if (voiceTarget && voiceTarget.classList.contains('row-memo')) {
-                delay = 500;
+                delay = 800;
             } else {
-                delay = 1200; // 일반적인 경우도 조금 더 여유를 줌
+                delay = 1500; // 모바일에서 발화 간격이 더 길 수 있으므로 여유 확보
             }
 
             voiceStatus.textContent = '잠시 대기 중...';
-            
+
             silenceTimer = setTimeout(() => {
                 if (isSessionDead) return;
-                
-                if (currentSpeechText) {
+                if (isProcessing) return;
+
+                if (currentSpeechText && currentSpeechText !== lastProcessedText) {
                     isSessionDead = true;
-                    
+                    isProcessing = true;
+
                     let textToProcess = currentSpeechText;
-                    currentSpeechText = ''; 
+                    lastProcessedText = textToProcess;
+                    currentSpeechText = '';
                     voiceTranscript.textContent = '';
-                    
-                    processVoiceCommand(textToProcess, voiceTarget);
+                    let capturedTarget = voiceTarget;
                     voiceTarget = null;
-                    
-                    try { recognition.abort(); } catch(e) {}
-                    setTimeout(() => { 
-                        if(!isListening) {
-                            try { recognition.start(); } catch(e) {}
+
+                    processVoiceCommand(textToProcess, capturedTarget);
+
+                    // 재시작: abort 후 일정 시간 뒤 start
+                    isRestarting = true;
+                    try { recognition.abort(); } catch (e) { isRestarting = false; }
+                    setTimeout(() => {
+                        isProcessing = false;
+                        isSessionDead = false;
+                        if (!isListening && !userStopped) {
+                            try {
+                                resultIndex = 0;
+                                recognition.start();
+                            } catch (e) {
+                                isRestarting = false;
+                                console.log('restart err:', e);
+                            }
+                        } else {
+                            isRestarting = false;
                         }
-                    }, 100);
+                    }, 400);
                 }
             }, delay);
         };
 
         // 로드 시 자동 시작 시도
-        try { recognition.start(); } catch(e) {}
+        try { recognition.start(); } catch (e) { }
     } else {
         voiceStatus.textContent = "현재 브라우저는 음성 인식을 지원하지 않습니다.";
     }
@@ -193,7 +249,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!hasMatch) {
                 numText = text.replace(/아니/g, '').replace(/수정해줘/g, '').replace(/변경해줘/g, '').replace(/수정/g, '').replace(/변경/g, '');
             }
-            
+
             let newAmt = parseKoreanNumberString(numText);
             if (!isNaN(newAmt)) {
                 targetInput.value = newAmt.toLocaleString();
@@ -208,7 +264,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (targetInput && (targetInput.classList.contains('row-memo') || targetInput.id === 'session-memo')) {
             let currentVal = targetInput.value.trim();
             targetInput.value = currentVal ? currentVal + ' ' + text : text;
-            
+
             if (targetInput.classList.contains('row-memo')) {
                 let item = items.find(i => i.id == targetInput.dataset.id);
                 if (item) item.memo = targetInput.value;
@@ -221,7 +277,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // 입력 완료 / 마이크 끄기
         if (text.includes('입력 완료') || text.includes('입력완료') || text.includes('그만') || text.includes('정지') || text.includes('마이크 꺼') || text.includes('마이크 꺼줘') || text.includes('계산 완료')) {
             if (isListening && recognition) {
-                try { recognition.stop(); } catch(e) {}
+                try { recognition.stop(); } catch (e) { }
             }
             return;
         }
@@ -241,7 +297,7 @@ document.addEventListener('DOMContentLoaded', () => {
         let pendingDiscounts = [];
         // 정규식 보강: "1번 10프로" 또는 "1번 10% 할인" 등 다양한 형태 지원
         const discountExtractRegex = /(?:([0-9]+|[일이삼사오육칠팔구십백천만]+)\s*번)\s*(?:([0-9가-힣]+)\s*(?:프로|퍼센트|%))(?:\s*할인)?/g;
-        
+
         let match;
         while ((match = discountExtractRegex.exec(text)) !== null) {
             let idxNum = parseKoreanNumberString(match[1]);
@@ -261,14 +317,14 @@ document.addEventListener('DOMContentLoaded', () => {
         // 수식 기호 변환 및 항목 추가
         if (text) {
             text = text.replace(/더하기/g, '+')
-                       .replace(/빼기/g, '-')
-                       .replace(/마이너스/g, '-');
-            
+                .replace(/빼기/g, '-')
+                .replace(/마이너스/g, '-');
+
             text = text.replace(/하면\??/g, '')
-                       .replace(/결과[는은]?/g, '')
-                       .replace(/얼마[야지]?/g, '')
-                       .replace(/은\??/g, '')
-                       .replace(/는\??/g, '');
+                .replace(/결과[는은]?/g, '')
+                .replace(/얼마[야지]?/g, '')
+                .replace(/은\??/g, '')
+                .replace(/는\??/g, '');
 
             let tokens = text.match(/([+-]?)([^+-]+)/g);
             if (tokens) {
@@ -276,7 +332,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     let signMatch = token.match(/^[+-]/);
                     let sign = signMatch ? signMatch[0] : '+';
                     let rest = token.replace(/^[+-]/, '');
-                    
+
                     let matches = rest.match(/[^원]+원(?:\s*[0-9가-힣]+\s*개|\s*곱하기\s*[0-9가-힣]+)?/g);
                     if (!matches) {
                         matches = [rest];
@@ -309,8 +365,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function parseSingleItem(str, sign) {
         str = str.trim();
-        if(!str) return null;
-        
+        if (!str) return null;
+
         let qtyStr = '1';
         let amountStr = str;
         let memo = '';
@@ -350,7 +406,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function applyCorrections(text) {
         let corrected = false;
-        
+
         // 1. 단가 수정 (예: 5만원을 6만원으로)
         const amountRegex = /([0-9가-힣\s,]+?)을\s+([0-9가-힣\s,]+?)(?:으)?로/g;
         let match;
@@ -366,7 +422,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
         }
-        
+
         // 2. 수량 수정 (예: 3만원은 2개가 아니라 3개)
         const qtyRegex = /([0-9가-힣\s,]+?)[은는]\s+.*?(?:아니라|대신|가\s*아니고)?\s*([0-9가-힣\s]+개)/g;
         while ((match = qtyRegex.exec(text)) !== null) {
@@ -381,7 +437,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
         }
-        
+
         if (corrected) renderItems();
     }
 
@@ -390,10 +446,10 @@ document.addEventListener('DOMContentLoaded', () => {
         str = str.replace(/원/g, '').replace(/,/g, '').trim();
 
         if (/^\d+$/.test(str.replace(/\s+/g, ''))) {
-             let parts = str.split(/\s+/);
-             if (parts.every(p => /^\d+$/.test(p))) {
-                 return parts.reduce((sum, p) => sum + parseInt(p, 10), 0);
-             }
+            let parts = str.split(/\s+/);
+            if (parts.every(p => /^\d+$/.test(p))) {
+                return parts.reduce((sum, p) => sum + parseInt(p, 10), 0);
+            }
         }
 
         const units = { '십': 10, '백': 100, '천': 1000 };
@@ -402,7 +458,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         let total = 0;
         let currentPart = 0;
-        let currentNum = 0; 
+        let currentNum = 0;
         let hasNum = false;
 
         let i = 0;
@@ -449,17 +505,17 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!str) return 1;
         str = str.replace(/\s+/g, '').replace('개', '');
         if (/^\d+$/.test(str)) return parseInt(str, 10);
-        const korMap = { 
-            '한': 1, '하나': 1, '일': 1, 
-            '두': 2, '둘': 2, '이': 2, 
-            '세': 3, '셋': 3, '삼': 3, 
-            '네': 4, '넷': 4, '사': 4, 
-            '다섯': 5, '오': 5, 
-            '여섯': 6, '육': 6, 
-            '일곱': 7, '칠': 7, 
-            '여덟': 8, '팔': 8, 
-            '아홉': 9, '구': 9, 
-            '열': 10, '십': 10 
+        const korMap = {
+            '한': 1, '하나': 1, '일': 1,
+            '두': 2, '둘': 2, '이': 2,
+            '세': 3, '셋': 3, '삼': 3,
+            '네': 4, '넷': 4, '사': 4,
+            '다섯': 5, '오': 5,
+            '여섯': 6, '육': 6,
+            '일곱': 7, '칠': 7,
+            '여덟': 8, '팔': 8,
+            '아홉': 9, '구': 9,
+            '열': 10, '십': 10
         };
         return korMap[str] || 1;
     }
@@ -493,7 +549,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function renderItems() {
         const tbody = document.getElementById('receipt-body');
         tbody.innerHTML = '';
-        
+
         items.forEach((item, index) => {
             const discountAmt = calculateRowDiscount(item);
             const hasDiscount = discountAmt > 0;
@@ -526,8 +582,8 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         document.querySelectorAll('.row-amount').forEach(el => {
-            el.addEventListener('focus', () => { 
-                activeInput = el; 
+            el.addEventListener('focus', () => {
+                activeInput = el;
                 isNewKeypadEntry = true;
                 originalValue = parseInt(el.value.replace(/,/g, '')) || 0;
             });
@@ -537,11 +593,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 updateItem(e.target.dataset.id, 'amount', val);
             });
         });
-        
+
         document.querySelectorAll('.row-qty').forEach(el => {
-            el.addEventListener('focus', () => { 
-                activeInput = el; 
-                isNewKeypadEntry = true; 
+            el.addEventListener('focus', () => {
+                activeInput = el;
+                isNewKeypadEntry = true;
                 originalValue = parseInt(el.value) || 0;
             });
             el.addEventListener('input', (e) => {
@@ -564,7 +620,7 @@ document.addEventListener('DOMContentLoaded', () => {
             });
             el.addEventListener('mousedown', (e) => e.preventDefault());
         });
-        
+
         document.querySelectorAll('.qty-plus').forEach(el => {
             el.addEventListener('click', (e) => {
                 let id = e.target.dataset.id;
@@ -579,9 +635,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
         document.querySelectorAll('.row-memo').forEach(el => {
             el.addEventListener('focus', () => { activeInput = el; });
-            el.addEventListener('change', (e) => { 
+            el.addEventListener('change', (e) => {
                 let item = items.find(i => i.id == e.target.dataset.id);
-                if(item) item.memo = e.target.value;
+                if (item) item.memo = e.target.value;
             });
         });
 
@@ -600,12 +656,12 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         document.getElementById('total-sum').textContent = calculateTotal().toLocaleString() + '원';
-        
+
         // 총 할인율 계산 및 표시
         const totalDiscountEl = document.getElementById('total-discount');
         const totalDiscountAmt = calculateTotalDiscount();
         const totalBeforeDiscount = items.reduce((acc, item) => acc + calculateRowBaseTotal(item), 0)
-                                   + (sessionsData[currentTab].extraDiscount || 0);
+            + (sessionsData[currentTab].extraDiscount || 0);
         if (totalDiscountAmt > 0 && totalBeforeDiscount > 0) {
             const discountPercent = Math.round(totalDiscountAmt / totalBeforeDiscount * 100);
             totalDiscountEl.textContent = `할인: -${totalDiscountAmt.toLocaleString()}원 (${discountPercent}% 할인)`;
@@ -648,11 +704,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 ${discountHtml}
             `;
             document.getElementById('total-sum').textContent = calculateTotal().toLocaleString() + '원';
-            
+
             const totalDiscountAmt = calculateTotalDiscount();
             const totalDiscountEl = document.getElementById('total-discount');
             const totalBeforeDiscount = items.reduce((acc, it) => acc + calculateRowBaseTotal(it), 0)
-                                       + (sessionsData[currentTab].extraDiscount || 0);
+                + (sessionsData[currentTab].extraDiscount || 0);
             if (totalDiscountAmt > 0 && totalBeforeDiscount > 0) {
                 const discountPercent = Math.round(totalDiscountAmt / totalBeforeDiscount * 100);
                 totalDiscountEl.textContent = `할인: -${totalDiscountAmt.toLocaleString()}원 (${discountPercent}% 할인)`;
@@ -666,7 +722,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- 기록 (History) 기능 ---
     document.getElementById('reset-btn').addEventListener('click', () => {
-        if(confirm('현재 입력된 모든 내용을 초기화하시겠습니까?')) {
+        if (confirm('현재 입력된 모든 내용을 초기화하시겠습니까?')) {
             items = [];
             sessionsData[currentTab].items = items;
             sessionsData[currentTab].memo = '';
@@ -678,7 +734,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     document.getElementById('save-btn').addEventListener('click', () => {
         if (items.length === 0) return;
-        
+
         const now = new Date();
         const session = {
             id: now.getTime(),
@@ -691,17 +747,17 @@ document.addEventListener('DOMContentLoaded', () => {
             memo: document.getElementById('session-memo').value,
             extraDiscount: sessionsData[currentTab].extraDiscount || 0
         };
-        
+
         let history = JSON.parse(localStorage.getItem('calcHistory') || '[]');
         history.push(session);
-        
+
         // 최근 30개만 유지 (오래된 순으로 삭제)
         if (history.length > 30) {
             history = history.slice(history.length - 30);
         }
-        
+
         localStorage.setItem('calcHistory', JSON.stringify(history));
-        
+
         items = [];
         sessionsData[currentTab].items = items;
         sessionsData[currentTab].memo = '';
@@ -709,9 +765,9 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('session-memo').value = '';
         renderItems();
         alert('계산이 완료되어 기록에 저장되었습니다.');
-        
+
         if (isListening && recognition) {
-            try { recognition.stop(); } catch(e) {}
+            try { recognition.stop(); } catch (e) { }
         }
     });
 
@@ -735,15 +791,15 @@ document.addEventListener('DOMContentLoaded', () => {
         const now = new Date();
         const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
         const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
-        
+
         const formatLocal = (d) => {
             const pad = n => n.toString().padStart(2, '0');
-            return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+            return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
         };
 
         document.getElementById('hist-datetime-start').value = formatLocal(startOfDay);
         document.getElementById('hist-datetime-end').value = formatLocal(endOfDay);
-        
+
         renderHistory();
         document.getElementById('history-modal').classList.add('active');
     });
@@ -759,27 +815,27 @@ document.addEventListener('DOMContentLoaded', () => {
     function renderHistory() {
         const list = document.getElementById('history-list');
         let history = JSON.parse(localStorage.getItem('calcHistory') || '[]');
-        
+
         const dtStart = document.getElementById('hist-datetime-start').value;
         const dtEnd = document.getElementById('hist-datetime-end').value;
-        
+
         if (dtStart && dtEnd) {
             const startLimit = new Date(dtStart).getTime();
             const endLimit = new Date(dtEnd).getTime();
-            
+
             history = history.filter(s => {
                 const sessionTime = s.id; // s.id는 getTime() 결과
                 return sessionTime >= startLimit && sessionTime <= endLimit;
             });
         }
-        
+
         if (history.length === 0) {
             list.innerHTML = '<p class="empty-msg">해당 조건에 맞는 과거 계산 기록이 없습니다.</p>';
             return;
         }
-        
+
         history.sort((a, b) => b.id - a.id);
-        
+
         let groups = {};
         history.forEach(session => {
             let d = session.date || new Date(session.id).toLocaleDateString();
@@ -817,13 +873,13 @@ document.addEventListener('DOMContentLoaded', () => {
                     <div class="hist-details" style="display: none;">
                         <div class="hist-items">
                             ${session.items.map((item, idx) => {
-                                let qtyHtml = item.quantity > 1 ? ` × <span style="color: red; font-weight: bold;">${item.quantity}</span>` : '';
-                                let baseTotal = item.amount * item.quantity;
-                                let itemDiscount = item.discountRate ? Math.floor(baseTotal * (item.discountRate / 100)) : 0;
-                                let itemTotal = baseTotal - itemDiscount;
-                                let discountHtml = itemDiscount > 0 ? `<div style="color: #3b82f6; font-size: 12px; margin-top: 3px;">-${itemDiscount.toLocaleString()}원 (${item.discountRate}%)</div>` : '';
-                                
-                                return `
+                    let qtyHtml = item.quantity > 1 ? ` × <span style="color: red; font-weight: bold;">${item.quantity}</span>` : '';
+                    let baseTotal = item.amount * item.quantity;
+                    let itemDiscount = item.discountRate ? Math.floor(baseTotal * (item.discountRate / 100)) : 0;
+                    let itemTotal = baseTotal - itemDiscount;
+                    let discountHtml = itemDiscount > 0 ? `<div style="color: #3b82f6; font-size: 12px; margin-top: 3px;">-${itemDiscount.toLocaleString()}원 (${item.discountRate}%)</div>` : '';
+
+                    return `
                                 <div class="hist-item-row" style="display: flex; justify-content: space-between; align-items: flex-start;">
                                     <span style="padding-right: 10px;">${idx + 1}. ${item.amount.toLocaleString()}${qtyHtml}</span>
                                     <div style="text-align: right;">
@@ -833,7 +889,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                     </div>
                                 </div>
                                 `;
-                            }).join('')}
+                }).join('')}
                             ${session.extraDiscount > 0 ? `<div style="margin-top: 10px; text-align: right; color: #3b82f6; font-size: 14px; font-weight: 600;">추가 할인: -${session.extraDiscount.toLocaleString()}원</div>` : ''}
                         </div>
                         <div class="hist-actions">
@@ -849,8 +905,8 @@ document.addEventListener('DOMContentLoaded', () => {
         list.innerHTML = html;
     }
 
-    window.deleteHistoryByDate = function(dateStr) {
-        if(confirm(`${dateStr} 의 모든 기록을 정말 삭제하시겠습니까?`)) {
+    window.deleteHistoryByDate = function (dateStr) {
+        if (confirm(`${dateStr} 의 모든 기록을 정말 삭제하시겠습니까?`)) {
             let history = JSON.parse(localStorage.getItem('calcHistory') || '[]');
             history = history.filter(s => {
                 let d = s.date || new Date(s.id).toLocaleDateString();
@@ -861,7 +917,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    window.loadSession = function(id) {
+    window.loadSession = function (id) {
         let history = JSON.parse(localStorage.getItem('calcHistory') || '[]');
         let session = history.find(s => s.id === id);
         if (session) {
@@ -875,8 +931,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    window.deleteHistory = function(id) {
-        if(confirm('이 기록을 삭제하시겠습니까?')) {
+    window.deleteHistory = function (id) {
+        if (confirm('이 기록을 삭제하시겠습니까?')) {
             let history = JSON.parse(localStorage.getItem('calcHistory') || '[]');
             history = history.filter(s => s.id !== id);
             localStorage.setItem('calcHistory', JSON.stringify(history));
@@ -893,16 +949,16 @@ document.addEventListener('DOMContentLoaded', () => {
             });
             e.target.classList.add('active');
             e.target.style.color = 'var(--primary)';
-            
+
             currentTab = parseInt(e.target.dataset.tab);
             items = sessionsData[currentTab].items;
             document.getElementById('session-memo').value = sessionsData[currentTab].memo;
-            
+
             const panel = document.getElementById('receipt-panel');
             if (currentTab === 0) panel.style.backgroundColor = '#ffffff';
             else if (currentTab === 1) panel.style.backgroundColor = '#fdf2f8'; // 연분홍
             else if (currentTab === 2) panel.style.backgroundColor = '#f0fdf4'; // 연녹색
-            
+
             renderItems();
         });
     });
