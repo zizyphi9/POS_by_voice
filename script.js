@@ -27,6 +27,11 @@ document.addEventListener('DOMContentLoaded', () => {
     let userStopped = false;
     let silenceTimer = null;
     let lastProcessedText = "";
+    
+    // Accumulators to fix Android duplication bugs
+    let globalAccumulator = "";
+    let sessionResultCount = 0;
+    let lastFinalText = "";
 
     const micBtn = document.getElementById('mic-btn');
     const voiceStatus = document.getElementById('voice-status');
@@ -45,6 +50,8 @@ document.addEventListener('DOMContentLoaded', () => {
             } else {
                 userStopped = false;
                 lastProcessedText = "";
+                globalAccumulator = "";
+                lastFinalText = "";
                 voiceTranscript.textContent = "";
                 recognition.start();
             }
@@ -52,6 +59,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         recognition.onstart = () => {
             isListening = true;
+            sessionResultCount = 0;
             micBtn.classList.add('listening');
             voiceStatus.textContent = '듣고 있습니다... 언제든 멈추려면 버튼을 누르세요.';
         };
@@ -81,23 +89,37 @@ document.addEventListener('DOMContentLoaded', () => {
         recognition.onresult = (e) => {
             clearTimeout(silenceTimer);
             let interim = "";
-            let finalT = "";
-            for (let i = 0; i < e.results.length; i++) {
-                if (e.results[i].isFinal) finalT += e.results[i][0].transcript + " ";
-                else interim += e.results[i][0].transcript;
+
+            for (let i = sessionResultCount; i < e.results.length; i++) {
+                if (e.results[i].isFinal) {
+                    let text = e.results[i][0].transcript.trim();
+                    // 안드로이드 중복 final 반환 버그 방지
+                    if (text && text !== lastFinalText) {
+                        globalAccumulator += text + " ";
+                        lastFinalText = text;
+                    }
+                    sessionResultCount = i + 1;
+                } else {
+                    interim += e.results[i][0].transcript;
+                }
             }
             
-            let currentText = (finalT + interim).trim();
+            let currentText = (globalAccumulator + interim).trim();
             voiceTranscript.textContent = currentText;
 
             silenceTimer = setTimeout(() => {
                 if (currentText && currentText !== lastProcessedText) {
                     lastProcessedText = currentText;
                     processVoiceCommand(currentText);
-                    // Processed. Stop to force a clean slate for the next utterance.
+                    
+                    // 초기화 및 재시작 유도
+                    globalAccumulator = "";
+                    lastFinalText = "";
+                    
+                    // 처리 완료 후 깨끗한 상태로 다시 시작하기 위해 stop 호출
                     try { recognition.stop(); } catch (err) {}
                 }
-            }, 1500); // 1.5 seconds silence triggers processing
+            }, 1200); // 1.2 seconds silence triggers processing
         };
 
         try { recognition.start(); } catch (e) {}
