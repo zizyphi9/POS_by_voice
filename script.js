@@ -630,22 +630,6 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // --- History Modal ---
-    document.getElementById('history-btn').addEventListener('click', () => {
-        const now = new Date();
-        const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
-        const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
-
-        const formatLocal = (d) => {
-            const pad = n => n.toString().padStart(2, '0');
-            return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-        };
-
-        document.getElementById('hist-datetime-start').value = formatLocal(startOfDay);
-        document.getElementById('hist-datetime-end').value = formatLocal(endOfDay);
-
-        renderHistory();
-        document.getElementById('history-modal').classList.add('active');
-    });
 
     document.getElementById('close-modal-btn').addEventListener('click', () => {
         document.getElementById('history-modal').classList.remove('active');
