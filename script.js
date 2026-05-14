@@ -429,7 +429,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const tr = document.createElement('tr');
             tr.innerHTML = `
                 <td style="text-align: center; font-weight: bold; color: var(--text-mut); font-size: 11px;">${index + 1}</td>
-                <td style="text-align: center;"><input type="text" class="row-amount num-input" data-id="${item.id}" value="${item.amount.toLocaleString()}"></td>
+                <td style="text-align: center;"><input type="text" class="row-amount num-input" data-id="${item.id}" value="${item.amount.toLocaleString()}" inputmode="numeric" pattern="[0-9]*"></td>
                 <td style="text-align: center;">
                     <div class="qty-control">
                         <button class="qty-btn qty-minus" data-id="${item.id}">-</button>

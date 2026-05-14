@@ -238,6 +238,7 @@
                 항목 10% 할인</button>
             <div style="display:flex; align-items:center; gap:8px; margin-bottom:15px;">
                 <input type="text" id="item-popup-discount-input" class="num-input" placeholder="임의 할인 금액 입력"
+                    inputmode="numeric" pattern="[0-9]*"
                     style="flex:1; padding:12px; border:1px solid var(--border); border-radius:8px; font-size:15px; text-align:right;">
                 <button id="item-popup-discount-apply"
                     style="padding:12px 20px; background:#10b981; color:white; border:none; border-radius:8px; font-weight:bold; cursor:pointer;">적용</button>
@@ -256,6 +257,7 @@
             <h3 style="margin-top:0; color:var(--primary); margin-bottom:20px;">전체 추가 할인 설정</h3>
             <div style="display:flex; align-items:center; gap:8px; margin-bottom:15px;">
                 <input type="text" id="extra-popup-discount-input" class="num-input" placeholder="할인 금액 입력"
+                    inputmode="numeric" pattern="[0-9]*"
                     style="flex:1; padding:12px; border:1px solid var(--border); border-radius:8px; font-size:15px; text-align:right;">
             </div>
             <button id="extra-popup-discount-apply"
