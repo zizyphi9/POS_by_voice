@@ -56,7 +56,7 @@
                     </div>
                     <div style="display:flex; justify-content:space-between; align-items:center; margin-top:5px;">
                         <div id="voice-status" style="color: var(--primary); font-weight: 600; font-size: 14px;">마이크 버튼을 눌러 시작하세요</div>
-                        <span style="font-size:11px; color:#94a3b8; font-weight:500;">v3.4</span>
+                        <span style="font-size:11px; color:#94a3b8; font-weight:500;">v3.5</span>
                     </div>
                     <div id="voice-transcript" style="color: var(--text-mut); font-style: italic; font-size: 14px; min-height: 20px;"></div>
                 </div>
@@ -84,14 +84,19 @@
                         <div style="display: flex; flex-direction: column; align-items: flex-start; gap: 8px;">
                             <span>총 합계</span>
                             <div
-                                style="display: flex; align-items: center; font-size: 15px; color: #3b82f6; font-weight: 500;">
-                                추가 할인: - <input type="text" id="extra-discount" value="0" inputmode="numeric" pattern="[0-9]*"
+                                style="display: flex; align-items: center; font-size: 15px; font-weight: 500;">
+                                추가 할인: <span style="margin: 0 5px; font-size: 20px; color: var(--danger); font-weight: bold;">-</span> 
+                                <input type="text" id="extra-discount" placeholder="0" inputmode="numeric" pattern="[0-9]*"
                                     style="width: 80px; text-align: right; margin: 0 5px; border: 1px solid #cbd5e1; border-radius: 4px; padding: 4px;"
                                     class="num-input"> 원
+                                <button id="apply-discount-btn" style="margin-left:8px; padding:4px 8px; font-size:12px; background:var(--primary); color:white; border:none; border-radius:4px; cursor:pointer;">적용</button>
+                                <button id="cancel-discount-btn" style="margin-left:4px; padding:4px 8px; font-size:12px; background:#f1f5f9; color:var(--text-mut); border:1px solid #cbd5e1; border-radius:4px; cursor:pointer;">취소</button>
                             </div>
-                            <span id="total-discount" style="color: #3b82f6; font-size: 14px; font-weight: 600;"></span>
                         </div>
-                        <span id="total-sum" class="total-sum">0원</span>
+                        <div style="display: flex; flex-direction: column; align-items: flex-end;">
+                            <span id="total-sum" class="total-sum" style="cursor: pointer; text-decoration: underline; text-decoration-color: #cbd5e1; text-underline-offset: 4px;" title="눌러서 할인 적용">0원</span>
+                            <span id="applied-discount-text" style="color: var(--danger); font-size: 14px; font-weight: 600; margin-top: 4px;"></span>
+                        </div>
                     </div>
                     <div style="display: flex; gap: 10px; width: 100%;">
                         <button id="reset-btn" class="reset-btn"><i class="fa-solid fa-rotate-right"></i> 초기화</button>
@@ -122,6 +127,19 @@
                 </div>
             </div>
             <div class="history-list" id="history-list"></div>
+        </div>
+    </div>
+
+    <!-- Discount Modal -->
+    <div id="discount-modal" class="modal">
+        <div class="modal-content" style="width: 320px; padding: 25px; text-align: center;">
+            <h3 style="margin-top:0; color:var(--primary); margin-bottom:20px;">할인 적용</h3>
+            <button id="discount-10-btn" style="width:100%; padding:15px; margin-bottom:15px; background:var(--primary); color:white; border:none; border-radius:8px; font-size:16px; font-weight:bold; cursor:pointer;">전체 금액 10% 할인</button>
+            <div style="display:flex; align-items:center; gap:8px; margin-bottom:15px;">
+                <input type="text" id="popup-discount-input" class="num-input" placeholder="임의 할인 금액 입력" style="flex:1; padding:12px; border:1px solid var(--border); border-radius:8px; font-size:15px; text-align:right;">
+                <button id="popup-discount-apply" style="padding:12px 20px; background:#10b981; color:white; border:none; border-radius:8px; font-weight:bold; cursor:pointer;">적용</button>
+            </div>
+            <button class="close-modal" id="close-discount-modal" style="width:100%; padding:12px; background:#f1f5f9; color:var(--text-mut); border:none; border-radius:8px; font-weight:bold; cursor:pointer;">닫기</button>
         </div>
     </div>
 

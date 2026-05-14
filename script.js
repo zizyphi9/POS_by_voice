@@ -199,7 +199,7 @@ document.addEventListener('DOMContentLoaded', () => {
         items = sessionsData[currentTab].items;
         
         document.getElementById('session-memo').value = '';
-        document.getElementById('extra-discount').value = '0';
+        document.getElementById('extra-discount').value = '';
         renderItems();
         voiceTranscript.textContent = '';
     }
@@ -439,6 +439,13 @@ document.addEventListener('DOMContentLoaded', () => {
         let finalTotal = itemsTotal - extraDiscount;
         document.getElementById('total-sum').textContent = finalTotal.toLocaleString() + '원';
 
+        const appliedDiscText = document.getElementById('applied-discount-text');
+        if (extraDiscount > 0) {
+            appliedDiscText.textContent = `(-${extraDiscount.toLocaleString()}원 할인됨)`;
+        } else {
+            appliedDiscText.textContent = '';
+        }
+
         // Event listeners for dynamic inputs
         document.querySelectorAll('.qty-minus').forEach(btn => btn.addEventListener('click', e => {
             let id = e.target.dataset.id;
@@ -508,7 +515,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         
         document.getElementById('session-memo').value = sessionsData[currentTab].memo;
-        document.getElementById('extra-discount').value = (sessionsData[currentTab].extraDiscount || 0).toLocaleString();
+        let ed = sessionsData[currentTab].extraDiscount || 0;
+        document.getElementById('extra-discount').value = ed > 0 ? ed.toLocaleString() : '';
         
         renderItems();
     }
@@ -557,7 +565,7 @@ document.addEventListener('DOMContentLoaded', () => {
         sessionsData[currentTab].extraDiscount = 0;
         sessionsData[currentTab].historyId = null;
         document.getElementById('session-memo').value = '';
-        document.getElementById('extra-discount').value = '0';
+        document.getElementById('extra-discount').value = '';
         renderItems();
         alert('저장 완료되었습니다.');
     }
@@ -584,10 +592,54 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    document.getElementById('extra-discount').addEventListener('input', (e) => {
+    const extraInput = document.getElementById('extra-discount');
+    extraInput.addEventListener('input', (e) => {
         let val = parseInt(e.target.value.replace(/,/g, '')) || 0;
-        e.target.value = val.toLocaleString();
+        e.target.value = val > 0 ? val.toLocaleString() : '';
+    });
+
+    document.getElementById('apply-discount-btn').addEventListener('click', () => {
+        let val = parseInt(extraInput.value.replace(/,/g, '')) || 0;
         sessionsData[currentTab].extraDiscount = val;
+        renderItems();
+    });
+
+    document.getElementById('cancel-discount-btn').addEventListener('click', () => {
+        extraInput.value = '';
+        sessionsData[currentTab].extraDiscount = 0;
+        renderItems();
+    });
+
+    // --- Discount Popup Logic ---
+    document.getElementById('total-sum').addEventListener('click', () => {
+        document.getElementById('popup-discount-input').value = '';
+        document.getElementById('discount-modal').classList.add('active');
+    });
+
+    document.getElementById('close-discount-modal').addEventListener('click', () => {
+        document.getElementById('discount-modal').classList.remove('active');
+    });
+
+    document.getElementById('discount-10-btn').addEventListener('click', () => {
+        let itemsTotal = items.reduce((acc, it) => acc + (it.amount * it.quantity), 0);
+        let disc = Math.floor(itemsTotal * 0.1);
+        sessionsData[currentTab].extraDiscount = disc;
+        extraInput.value = disc > 0 ? disc.toLocaleString() : '';
+        document.getElementById('discount-modal').classList.remove('active');
+        renderItems();
+    });
+
+    const popupInput = document.getElementById('popup-discount-input');
+    popupInput.addEventListener('input', (e) => {
+        let val = parseInt(e.target.value.replace(/,/g, '')) || 0;
+        e.target.value = val > 0 ? val.toLocaleString() : '';
+    });
+
+    document.getElementById('popup-discount-apply').addEventListener('click', () => {
+        let val = parseInt(popupInput.value.replace(/,/g, '')) || 0;
+        sessionsData[currentTab].extraDiscount = val;
+        extraInput.value = val > 0 ? val.toLocaleString() : '';
+        document.getElementById('discount-modal').classList.remove('active');
         renderItems();
     });
 
