@@ -448,12 +448,21 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         let extraDiscount = sessionsData[currentTab].extraDiscount || 0;
-        let finalTotal = itemsTotal - extraDiscount;
+        let itemDiscountTotal = items.reduce((acc, it) => acc + (it.itemDiscount || 0), 0);
+        let totalDiscount = extraDiscount + itemDiscountTotal;
+        let finalTotal = itemsTotal - extraDiscount; // itemsTotal already has itemDiscount subtracted per row
         document.getElementById('total-sum').textContent = finalTotal.toLocaleString() + '원';
 
+        // Sync extra-discount input field
+        const extraInputEl = document.getElementById('extra-discount');
+        if (extraInputEl) extraInputEl.value = extraDiscount > 0 ? extraDiscount.toLocaleString() : '';
+
         const appliedDiscText = document.getElementById('applied-discount-text');
-        if (extraDiscount > 0) {
-            appliedDiscText.textContent = `(-${extraDiscount.toLocaleString()}원 할인됨)`;
+        if (totalDiscount > 0) {
+            let parts = [];
+            if (itemDiscountTotal > 0) parts.push(`항목할인 -${itemDiscountTotal.toLocaleString()}원`);
+            if (extraDiscount > 0) parts.push(`추가할인 -${extraDiscount.toLocaleString()}원`);
+            appliedDiscText.textContent = `(${parts.join(' / ')})`;
         } else {
             appliedDiscText.textContent = '';
         }
@@ -481,12 +490,34 @@ document.addEventListener('DOMContentLoaded', () => {
             let item = items.find(i => i.id == id);
             if (item) { item.amount = val; renderItems(); }
         }));
-        document.querySelectorAll('.row-memo').forEach(inp => inp.addEventListener('change', e => {
-            let id = e.target.dataset.id;
-            let item = items.find(i => i.id == id);
-            if (item) item.memo = e.target.value;
-            saveSessionState();
-        }));
+        const tooltip = document.getElementById('memo-tooltip');
+        document.querySelectorAll('.row-memo').forEach(inp => {
+            inp.addEventListener('change', e => {
+                let id = e.target.dataset.id;
+                let item = items.find(i => i.id == id);
+                if (item) item.memo = e.target.value;
+                saveSessionState();
+            });
+
+            const showTooltip = (e) => {
+                if (!inp.value) return;
+                tooltip.textContent = inp.value;
+                tooltip.style.display = 'block';
+                const rect = inp.getBoundingClientRect();
+                tooltip.style.left = Math.max(10, rect.left) + 'px';
+                tooltip.style.top = (rect.bottom + 5) + 'px';
+            };
+            const hideTooltip = () => {
+                tooltip.style.display = 'none';
+            };
+
+            inp.addEventListener('touchstart', showTooltip, {passive: true});
+            inp.addEventListener('touchend', hideTooltip);
+            inp.addEventListener('mousedown', showTooltip);
+            inp.addEventListener('mouseup', hideTooltip);
+            inp.addEventListener('mouseleave', hideTooltip);
+            inp.addEventListener('input', hideTooltip);
+        });
         document.querySelectorAll('.row-qty').forEach(inp => inp.addEventListener('change', e => {
             let id = e.target.dataset.id;
             let val = parseInt(e.target.value) || 0;
@@ -605,21 +636,34 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     const extraInput = document.getElementById('extra-discount');
-    extraInput.addEventListener('input', (e) => {
-        let val = parseInt(e.target.value.replace(/,/g, '')) || 0;
-        e.target.value = val > 0 ? val.toLocaleString() : '';
+    extraInput.addEventListener('click', () => {
+        document.getElementById('extra-popup-discount-input').value = extraInput.value;
+        document.getElementById('extra-discount-modal').classList.add('active');
     });
 
-    document.getElementById('apply-discount-btn').addEventListener('click', () => {
-        let val = parseInt(extraInput.value.replace(/,/g, '')) || 0;
+    const extraPopupInput = document.getElementById('extra-popup-discount-input');
+    if (extraPopupInput) {
+        extraPopupInput.addEventListener('input', (e) => {
+            let val = parseInt(e.target.value.replace(/,/g, '')) || 0;
+            e.target.value = val > 0 ? val.toLocaleString() : '';
+        });
+    }
+
+    document.getElementById('extra-popup-discount-apply') && document.getElementById('extra-popup-discount-apply').addEventListener('click', () => {
+        let val = parseInt(extraPopupInput.value.replace(/,/g, '')) || 0;
         sessionsData[currentTab].extraDiscount = val;
         renderItems();
+        document.getElementById('extra-discount-modal').classList.remove('active');
     });
 
-    document.getElementById('cancel-discount-btn').addEventListener('click', () => {
-        extraInput.value = '';
+    document.getElementById('extra-popup-discount-cancel') && document.getElementById('extra-popup-discount-cancel').addEventListener('click', () => {
         sessionsData[currentTab].extraDiscount = 0;
         renderItems();
+        document.getElementById('extra-discount-modal').classList.remove('active');
+    });
+
+    document.getElementById('close-extra-discount-modal') && document.getElementById('close-extra-discount-modal').addEventListener('click', () => {
+        document.getElementById('extra-discount-modal').classList.remove('active');
     });
 
     // (Overall discount logic removed as requested)
