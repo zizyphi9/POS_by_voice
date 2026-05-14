@@ -34,7 +34,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     let recognition = null;
     let isListening = false;
-    let currentSpeechText = ''; // 전체 재조립된 텍스트
     let silenceTimer;
 
     const micBtn = document.getElementById('mic-btn');
@@ -42,12 +41,14 @@ document.addEventListener('DOMContentLoaded', () => {
     const voiceTranscript = document.getElementById('voice-transcript');
 
     let voiceTarget = null;
-    let isSessionDead = false;   // 중복 입력 방지용 플래그
-    let isProcessing = false;    // 처리 중 플래그 (silenceTimer vs onend 중복 방지)
-    let lastProcessedText = '';  // 마지막으로 처리한 텍스트 (동일 텍스트 재처리 방지)
-    let userStopped = false;     // 사용자가 직접 멈춘 경우 플래그
-    let resultIndex = 0;         // 안드로이드에서 result 누적 방지용 인덱스 추적
-    let isRestarting = false;    // 재시작 중 플래그
+    let isProcessing = false;       // 처리 중 플래그
+    let userStopped = false;        // 사용자가 직접 멈춘 경우
+    let globalAccumulator = '';     // 세션 간 누적 텍스트 (안드로이드 세션 분리 대응)
+    let sessionResultCount = 0;     // 현재 세션에서 이미 final로 처리한 결과 수
+    let lastProcessedText = '';     // 직전에 처리한 텍스트 (완전 동일 중복 방지)
+
+    // 모바일 감지
+    const isMobile = /Android|webOS|iPhone|iPad|iPod/i.test(navigator.userAgent);
 
     if (SpeechRecognition) {
         recognition = new SpeechRecognition();
@@ -59,16 +60,25 @@ document.addEventListener('DOMContentLoaded', () => {
             try {
                 if (isListening) {
                     userStopped = true;
-                    isRestarting = false;
                     clearTimeout(silenceTimer);
+                    // 남아있는 텍스트 처리
+                    let remaining = (globalAccumulator).trim();
+                    if (remaining && remaining !== lastProcessedText) {
+                        lastProcessedText = remaining;
+                        processVoiceCommand(remaining, voiceTarget);
+                    }
+                    globalAccumulator = '';
+                    sessionResultCount = 0;
+                    voiceTarget = null;
                     recognition.stop();
                 } else {
                     userStopped = false;
                     isProcessing = false;
                     lastProcessedText = '';
-                    currentSpeechText = '';
+                    globalAccumulator = '';
+                    sessionResultCount = 0;
                     voiceTarget = null;
-                    resultIndex = 0;
+                    voiceTranscript.textContent = '';
                     recognition.start();
                 }
             } catch (e) {
@@ -82,25 +92,24 @@ document.addEventListener('DOMContentLoaded', () => {
 
         recognition.onstart = () => {
             isListening = true;
-            isSessionDead = false;
-            isProcessing = false;
-            resultIndex = 0;
+            sessionResultCount = 0;  // 새 세션: final 카운트 초기화
             micBtn.classList.add('listening');
-            voiceStatus.textContent = '듣고 있습니다... 언제든 멈추려면 버튼을 누르세요.';
+            if (!globalAccumulator) {
+                voiceStatus.textContent = '듣고 있습니다... 언제든 멈추려면 버튼을 누르세요.';
+            }
         };
 
         recognition.onerror = (event) => {
             console.error('Speech recognition error:', event.error);
-            // 재시작 중 abort 에러는 무시
-            if (isRestarting && event.error === 'aborted') return;
+            if (event.error === 'aborted' || event.error === 'no-speech') return;
             isListening = false;
             micBtn.classList.remove('listening');
             if (event.error === 'not-allowed') {
                 voiceStatus.textContent = '마이크 권한이 차단되었습니다. 사이트 설정에서 허용해주세요.';
             } else if (event.error === 'network') {
                 voiceStatus.textContent = '인터넷 연결을 확인해주세요.';
-            } else if (event.error !== 'aborted' && event.error !== 'no-speech') {
-                voiceStatus.textContent = '음성 인식 오류가 발생했습니다: ' + event.error;
+            } else {
+                voiceStatus.textContent = '음성 인식 오류: ' + event.error;
             }
         };
 
@@ -109,116 +118,84 @@ document.addEventListener('DOMContentLoaded', () => {
             isListening = false;
             micBtn.classList.remove('listening');
 
-            // 재시작 중일 때는 onend에서 처리하지 않음
-            if (isRestarting) {
-                isRestarting = false;
-                setTimeout(() => {
-                    if (!isListening && !userStopped) {
-                        try {
-                            isRestarting = false;
-                            recognition.start();
-                        } catch (e) { console.log('restart failed:', e); }
-                    }
-                }, 300);
+            if (userStopped) {
+                voiceStatus.textContent = '마이크 버튼을 눌러 시작하세요';
+                globalAccumulator = '';
+                voiceTranscript.textContent = '';
+                isProcessing = false;
                 return;
             }
 
-            if (voiceStatus.textContent.includes('듣고 있습니다') || voiceStatus.textContent.includes('대기 중') || voiceStatus.textContent.includes('대기')) {
-                voiceStatus.textContent = '마이크 버튼을 눌러 시작하세요';
-            }
-
-            // isProcessing이 아니고, 아직 처리 안 된 텍스트가 있고, 이전에 처리된 텍스트와 다를 때만 처리
-            if (!isProcessing && currentSpeechText && currentSpeechText !== lastProcessedText) {
-                isProcessing = true;
-                lastProcessedText = currentSpeechText;
-                let textToProcess = currentSpeechText;
-                currentSpeechText = '';
-                voiceTranscript.textContent = '';
-                voiceTarget = null;
-                processVoiceCommand(textToProcess, voiceTarget);
-            } else {
-                currentSpeechText = '';
-                voiceTranscript.textContent = '';
-                voiceTarget = null;
-            }
-
-            isSessionDead = false;
-            isProcessing = false;
+            // 안드로이드에서 자연스럽게 세션이 끊긴 경우 → 자동 재시작
+            // globalAccumulator는 유지하여 누적 계속
+            setTimeout(() => {
+                if (!userStopped && !isListening) {
+                    sessionResultCount = 0;
+                    try { recognition.start(); } catch (e) { }
+                }
+            }, 200);
         };
 
         recognition.onresult = (event) => {
-            if (isSessionDead) return;
-
             clearTimeout(silenceTimer);
             if (!voiceTarget) voiceTarget = activeInput;
 
-            let finalT = '';
-            let interimT = '';
-            // 안드로이드 중복 누적 버그 방지: resultIndex 이후의 결과만 새로 쌓음
-            // 단, 매 onresult마다 전체를 재조립하되 resultIndex 이전은 이미 finalT에 포함됨
-            for (let i = 0; i < event.results.length; ++i) {
+            // sessionResultCount 이후의 NEW final 결과만 globalAccumulator에 추가
+            let newFinals = '';
+            for (let i = sessionResultCount; i < event.results.length; i++) {
                 if (event.results[i].isFinal) {
-                    finalT += event.results[i][0].transcript + ' ';
-                } else {
-                    interimT += event.results[i][0].transcript;
+                    newFinals += event.results[i][0].transcript + ' ';
+                    sessionResultCount = i + 1;
+                }
+            }
+            if (newFinals) {
+                globalAccumulator += newFinals;
+            }
+
+            // 현재 interim (아직 확정 안 된 결과)
+            let interim = '';
+            for (let i = sessionResultCount; i < event.results.length; i++) {
+                if (!event.results[i].isFinal) {
+                    interim += event.results[i][0].transcript;
                 }
             }
 
-            currentSpeechText = (finalT + interimT).trim();
-            voiceTranscript.textContent = currentSpeechText;
+            let currentText = (globalAccumulator + interim).trim();
+            voiceTranscript.textContent = currentText;
 
-            let combined = currentSpeechText;
-            let delay = 1000;
-
-            // "원"으로 끝나면 수량이 뒤따라올 가능성이 높으므로 지연 시간을 늘림
-            if (combined.endsWith('원') || combined.endsWith('원 ')) {
-                delay = 2000;
-            } else if (combined.endsWith('더하기') || combined.endsWith('+') || combined.endsWith('하고')) {
-                delay = 3000;
+            // 딜레이 결정 (모바일은 더 여유있게)
+            let base = isMobile ? 1800 : 1200;
+            let delay = base;
+            if (currentText.endsWith('원') || currentText.endsWith('원 ')) {
+                delay = isMobile ? 3000 : 2000;
+            } else if (currentText.endsWith('더하기') || currentText.endsWith('+') || currentText.endsWith('하고')) {
+                delay = 4000;
             } else if (voiceTarget && voiceTarget.classList.contains('row-memo')) {
-                delay = 800;
-            } else {
-                delay = 1500; // 모바일에서 발화 간격이 더 길 수 있으므로 여유 확보
+                delay = isMobile ? 1500 : 800;
             }
 
             voiceStatus.textContent = '잠시 대기 중...';
 
             silenceTimer = setTimeout(() => {
-                if (isSessionDead) return;
                 if (isProcessing) return;
 
-                if (currentSpeechText && currentSpeechText !== lastProcessedText) {
-                    isSessionDead = true;
-                    isProcessing = true;
+                let textToProcess = (globalAccumulator + interim).trim();
+                if (!textToProcess || textToProcess === lastProcessedText) return;
 
-                    let textToProcess = currentSpeechText;
-                    lastProcessedText = textToProcess;
-                    currentSpeechText = '';
-                    voiceTranscript.textContent = '';
-                    let capturedTarget = voiceTarget;
-                    voiceTarget = null;
+                isProcessing = true;
+                lastProcessedText = textToProcess;
 
-                    processVoiceCommand(textToProcess, capturedTarget);
+                // 처리 후 누적 초기화 (다음 발화를 위해)
+                globalAccumulator = '';
+                sessionResultCount = 0;
+                voiceTranscript.textContent = '';
+                let capturedTarget = voiceTarget;
+                voiceTarget = null;
 
-                    // 재시작: abort 후 일정 시간 뒤 start
-                    isRestarting = true;
-                    try { recognition.abort(); } catch (e) { isRestarting = false; }
-                    setTimeout(() => {
-                        isProcessing = false;
-                        isSessionDead = false;
-                        if (!isListening && !userStopped) {
-                            try {
-                                resultIndex = 0;
-                                recognition.start();
-                            } catch (e) {
-                                isRestarting = false;
-                                console.log('restart err:', e);
-                            }
-                        } else {
-                            isRestarting = false;
-                        }
-                    }, 400);
-                }
+                processVoiceCommand(textToProcess, capturedTarget);
+
+                isProcessing = false;
+                voiceStatus.textContent = '듣고 있습니다... 언제든 멈추려면 버튼을 누르세요.';
             }, delay);
         };
 
